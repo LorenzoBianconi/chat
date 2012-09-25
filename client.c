@@ -46,15 +46,14 @@ void *read_thread(void *t)
 
 	while (1) {
 		memset(buff, 0, BUFFLEN);
-		if (read(*sock, buff, BUFFLEN - 1) <= 0) {
-			printf("error receiving data\n");
+		if (read(*sock, buff, BUFFLEN - 1) <= 0)
 			goto exit;
-		} else
+		else
 			printf("%s", buff);
 	}
 exit:
+	printf("%s: closing socket %d\n", __func__, *sock);
 	close(*sock);
-	printf("terminating receiving thread\n");
 	pthread_exit(NULL);
 }
 
@@ -110,10 +109,7 @@ int main(int argc, char **argv)
 		char msg[BUFFLEN];
 		memset(msg, 0, BUFFLEN);
 		fgets(msg, BUFFLEN, stdin);
-
 		sndMsg(msg, sock);
 	}
-	printf("closing connection\n");
-	close(sock);
 	return 0;
 }
