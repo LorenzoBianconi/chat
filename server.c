@@ -46,6 +46,7 @@ void rmThrInfo(int sock)
 				usrs = u1->next;
 			else
 				u2->next = u1->next;
+			close(u1->sock);
 			free(u1);
 			return;
 		}
@@ -57,7 +58,7 @@ void rmThrInfo(int sock)
 int clientAuth(int sock, char *buff)
 {
 	memset(buff, 0, BUFFLEN);
-	if (read(sock, buff, BUFFLEN - 1) < 0) {
+	if (read(sock, buff, BUFFLEN - 1) <= 0) {
 		printf("%s: error receiving data\n", __func__);
 		return -1;
 	}
@@ -76,8 +77,7 @@ void *client_thread(void *t)
 
 	while (1) {
 		memset(msg, 0, BUFFLEN);
-		if (read(info->sock, msg, BUFFLEN - 1) < 0 ||
-		    !strncmp(msg, "exit\n", strlen(msg)))
+		if (read(info->sock, msg, BUFFLEN - 1) <= 0)
 			goto exit;
 		else {
 			memset(buff, 0, BUFFLEN);
@@ -95,16 +95,15 @@ exit:
 	frwdMsg(info->sock, buff);
 	printf("%s", buff);
 
-	close(info->sock);
 	rmThrInfo(info->sock);
 	pthread_exit(NULL);
 }
 
 int main(int argc, char **argv)
 {
-	int port = 9999, sock;
+	int port = 9999, sock, optval = 1;
 	struct sockaddr_in sa;
-	
+
 	if (argc ==  2)
 		port = atof(argv[1]);
 	memset(&sa, 0, sizeof(struct sockaddr_in));
@@ -115,6 +114,11 @@ int main(int argc, char **argv)
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
 		printf("error creating the socket\n", __func__);
+		return -1;
+	}
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
+		       &optval, sizeof (optval)) < 0) {
+		printf("error setting socket option\n");
 		return -1;
 	}
 	if (bind(sock, (const struct sockaddr*)&sa, sizeof(sa)) < 0) {

@@ -32,7 +32,7 @@ int clientAuth(int sock, char *msg)
 	memset(buff, 0, BUFFLEN);
 
 	sndMsg(msg, sock);
-	if (read(sock, buff, BUFFLEN - 1) < 0) {
+	if (read(sock, buff, BUFFLEN - 1) <= 0) {
 		printf("%s: error receiving data\n", __func__);
 		return -1;
 	}
@@ -46,7 +46,7 @@ void *read_thread(void *t)
 
 	while (1) {
 		memset(buff, 0, BUFFLEN);
-		if (read(*sock, buff, BUFFLEN - 1) < 0) {
+		if (read(*sock, buff, BUFFLEN - 1) <= 0) {
 			printf("error receiving data\n");
 			goto exit;
 		} else
@@ -112,8 +112,6 @@ int main(int argc, char **argv)
 		fgets(msg, BUFFLEN, stdin);
 
 		sndMsg(msg, sock);
-		if (!strncmp(msg, "exit\n", strlen(msg)))
-			break;
 	}
 	printf("closing connection\n");
 	close(sock);
