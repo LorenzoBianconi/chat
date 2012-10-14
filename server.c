@@ -6,40 +6,28 @@
  * published by the Free Software Foundation.
  *
  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
-#include <sys/types.h>
+#include "msg.h"
 
-#define BUFFLEN		1024
 #define MAX_CONN	5 
 
-struct usrInfo {
-	char nick[BUFFLEN];
-	int sock;
-	pthread_t ptr;
-	struct usrInfo *next;
-};
+static struct usr_info *usrs = NULL;
+static char server[] = "chat_server";
 
-struct usrInfo *usrs = NULL;
-
-void frwdMsg(int sock, char *msg)
+void frw_msg(int sock, char *msg, int msglen)
 {
-	struct usrInfo *u = usrs;
+	struct usr_info *u = usrs;
 	while (u) {
-		if (u->sock != sock) {
-			send(u->sock, msg, strlen(msg), 0);
-		}
+		if (u->sock != sock)
+			snd_msg(msg, msglen, u->sock);
 		u = u->next;
 	}
 }
 
-void rmThrInfo(int sock)
+void remove_user_info(int sock)
 {
-	struct usrInfo *u2, *u1 = usrs;
+	struct usr_info *u2, *u1 = usrs;
 	while (u1) {
 		if (u1->sock == sock) {
 			if (u1 == usrs)
@@ -55,48 +43,96 @@ void rmThrInfo(int sock)
 	}
 }
 
-int clientAuth(int sock, char *buff)
-{
-	memset(buff, 0, BUFFLEN);
-	if (read(sock, buff, BUFFLEN - 1) <= 0) {
-		printf("%s: error receiving data\n", __func__);
-		return -1;
-	}
-	if (send(sock, "OK", 3, 0) < 0) {
-		printf("%s: error sending data to the server\n", __func__);
-		return -1;
-	}
-	return 0;
-
-}
-
 void *client_thread(void *t)
 {
-	struct usrInfo *info = (struct usrInfo *)t;
-	char buff[BUFFLEN], msg[BUFFLEN];
+	int len;
+	struct usr_info *info = (struct usr_info *)t;
+	char *msg = (char *) malloc(BUFFLEN);
+	struct chat_header *ch;
+	struct chat_data *data;
 
 	while (1) {
 		memset(msg, 0, BUFFLEN);
-		if (read(info->sock, msg, BUFFLEN - 1) <= 0)
+		if ((len = recv(info->sock, msg, BUFFLEN - 1, 0)) <= 0)
 			goto exit;
 		else {
-			memset(buff, 0, BUFFLEN);
-			strncat(buff, info->nick, strlen(info->nick));
-			strncat(buff, ": ", 3);
-			strncat(buff, msg, strlen(msg));
-			printf("%s", buff);
-			frwdMsg(info->sock, buff);
+			ch = (struct chat_header *) msg;
+			switch (ch->type) {
+			case CHAT_DATA:
+				data = (struct chat_data *)(ch + 1);
+#ifdef DEBUG
+				printf("%s: %s", ch->nick, data->data);
+#endif
+				frw_msg(info->sock, msg, len);
+				break;
+			default:
+				break;
+			}
 		}
 	}
 exit:
-	memset(buff, 0, BUFFLEN);
-	strncat(buff, info->nick, strlen(info->nick));
-	strncat(buff, " is disconnected\n", 17);
-	frwdMsg(info->sock, buff);
-	printf("%s", buff);
-
-	rmThrInfo(info->sock);
+	memset(msg, 0, BUFFLEN);
+	make_chat_header(msg, CHAT_DATA, info->nick, NICKLEN);
+	make_chat_data(msg, "is disconnected\n", DATALEN);
+	frw_msg(info->sock, msg, BUFFLEN);
+#ifdef DEBUG
+	printf("%s", msg);
+#endif
+	remove_user_info(info->sock);
 	pthread_exit(NULL);
+}
+
+int client_auth(int sock)
+{
+	char *buff = (char *) malloc(BUFFLEN);
+	memset(buff, 0, BUFFLEN);
+	if (read(sock, buff, BUFFLEN - 1) <= 0) {
+#ifdef DEBUG
+		printf("%s: error receiving data\n", __func__);
+#endif
+		return -1;
+	}
+	struct chat_header *ch = (struct chat_header *) buff;
+	if (ch->type == CHAT_AUTH_REQ) {
+		int len = sizeof(struct chat_header) +
+			  sizeof(struct chat_auth_rep) +
+			  1;
+		/*
+		 * XXX: open authentication for the moment
+		 */
+		struct usr_info *uinfo = (struct usr_info*)
+			malloc(sizeof(struct usr_info));
+		memset(uinfo, 0, sizeof(struct usr_info));
+		if (!uinfo)
+			return -1;
+		uinfo->sock = sock;
+		memcpy(uinfo->nick, ch->nick, NICKLEN);
+		if (pthread_create(&uinfo->ptr, NULL, client_thread,
+				   (void *)uinfo) < 0) {
+#ifdef DEBUG
+			printf("error creating thread\n");
+#endif
+			free(uinfo);
+			return -1;
+		}
+		uinfo->next = usrs;
+		usrs = uinfo;
+		buff = (char *) malloc(len);
+		memset(buff, 0, len);
+		make_chat_header(buff, CHAT_AUTH_REP, server, strlen(server));
+		make_auth_rep(buff, AUTH_SUCCESS);
+		if (snd_msg(buff, len, sock) < 0)
+			return -1;
+#ifdef DEBUG
+		printf("authentication successful\n");
+#endif
+		memset(buff, 0, BUFFLEN);
+		make_chat_header(buff, CHAT_DATA, ch->nick, NICKLEN);
+		make_chat_data(buff, "is connected\n", DATALEN);
+		frw_msg(sock, buff, BUFFLEN);
+		return 0;
+	}
+	return -1;
 }
 
 int main(int argc, char **argv)
@@ -113,55 +149,45 @@ int main(int argc, char **argv)
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
-		printf("error creating the socket\n", __func__);
+#ifdef DEBUG
+		printf("error creating the socket\n");
+#endif
 		return -1;
 	}
-	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
-		       &optval, sizeof (optval)) < 0) {
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &optval,
+		       sizeof (optval)) < 0) {
+#ifdef DEBUG
 		printf("error setting socket option\n");
+#endif
 		return -1;
 	}
 	if (bind(sock, (const struct sockaddr*)&sa, sizeof(sa)) < 0) {
-		printf("error binding the socket\n", __func__);
+#ifdef DEBUG
+		printf("error binding the socket\n");
+#endif
 		return -1;
 	}
 	if (listen(sock, MAX_CONN)) {
-		printf("error in listening the socket\n", __func__);
+#ifdef DEBUG
+		printf("error in listening the socket\n");
+#endif
 		return -1;
 	}
 	while (1) {
-		char nick[BUFFLEN];
-		struct usrInfo *uinfo;
 		int cs = accept(sock, NULL, NULL);
 		if (cs < 0) {
-			printf("error accepting connection\n", __func__);
+#ifdef DEBUG
+			printf("error accepting connection\n");
+#endif
 			return -1;
 		}
-		if (clientAuth(cs, nick) < 0) {
-			printf("authentication failed\n", __func__);
+		if (client_auth(cs) < 0) {
+#ifdef DEBUG
+			printf("authentication failed\n");
+#endif
 			close(cs);
 			continue;
-		} else {
-			char buff[BUFFLEN];
-			memset(buff, 0, BUFFLEN);
-			strncat(buff, nick, strlen(nick));
-			strncat(buff, " is connected\n", 14);
-			frwdMsg(cs, buff);
-			printf("%s", buff);
 		}
-		uinfo = (struct usrInfo*) malloc(sizeof(struct usrInfo));
-		if (!uinfo)
-			return -1;
-		uinfo->sock = cs;
-		memcpy(uinfo->nick, nick, strlen(nick));
-		if (pthread_create(&uinfo->ptr, NULL, client_thread,
-				   (void *)uinfo) < 0) {
-			printf("error creating thread\n");
-			free(uinfo);
-			return -1;
-		}
-		uinfo->next = usrs;
-		usrs = uinfo;
 	}
 	close(sock);
 	return 0;
