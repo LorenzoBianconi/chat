@@ -1,8 +1,8 @@
 CC = gcc
 LIBS = -lpthread
-DEFINES = -DDEBUG
-OPTIMIZE = -g -Wall
-#OPTIMIZE = -O3 -s -fomit-frame-pointer
+#DEFINES = -DDEBUG
+#OPTIMIZE = -g -Wall
+OPTIMIZE = -O3 -s -fomit-frame-pointer
 CFLAGS   = $(DEFINES) $(OPTIMIZE)
 
 .c.o:

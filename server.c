@@ -54,7 +54,7 @@ void *client_thread(void *t)
 	while (1) {
 		memset(msg, 0, BUFFLEN);
 		if ((len = recv(info->sock, msg, BUFFLEN - 1, 0)) <= 0)
-			goto exit;
+			break;
 		else {
 			ch = (struct chat_header *) msg;
 			switch (ch->type) {
@@ -70,7 +70,6 @@ void *client_thread(void *t)
 			}
 		}
 	}
-exit:
 	memset(msg, 0, BUFFLEN);
 	make_chat_header(msg, CHAT_DATA, info->nick, NICKLEN);
 	make_chat_data(msg, "is disconnected\n", DATALEN);
@@ -94,13 +93,10 @@ int client_auth(int sock)
 	}
 	struct chat_header *ch = (struct chat_header *) buff;
 	if (ch->type == CHAT_AUTH_REQ) {
-		int len = sizeof(struct chat_header) +
-			  sizeof(struct chat_auth_rep) +
-			  1;
 		/*
 		 * XXX: open authentication for the moment
 		 */
-		struct usr_info *uinfo = (struct usr_info*)
+		struct usr_info *uinfo = (struct usr_info *)
 			malloc(sizeof(struct usr_info));
 		memset(uinfo, 0, sizeof(struct usr_info));
 		if (!uinfo)
@@ -117,11 +113,11 @@ int client_auth(int sock)
 		}
 		uinfo->next = usrs;
 		usrs = uinfo;
-		buff = (char *) malloc(len);
-		memset(buff, 0, len);
+		buff = (char *) malloc(BUFFLEN);
+		memset(buff, 0, BUFFLEN);
 		make_chat_header(buff, CHAT_AUTH_REP, server, strlen(server));
 		make_auth_rep(buff, AUTH_SUCCESS);
-		if (snd_msg(buff, len, sock) < 0)
+		if (snd_msg(buff, BUFFLEN, sock) < 0)
 			return -1;
 #ifdef DEBUG
 		printf("authentication successful\n");

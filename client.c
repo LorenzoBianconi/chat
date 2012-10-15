@@ -143,7 +143,8 @@ int main(int argc, char **argv)
 		memset(msg, 0, BUFFLEN);
 		memset(buff, 0, DATALEN);
 		make_chat_header(msg, CHAT_DATA, nick, strlen(nick));
-		fgets(buff, DATALEN, stdin);
+		if (fgets(buff, DATALEN, stdin) == NULL)
+			continue;
 		make_chat_data(msg, buff, DATALEN);
 		snd_msg(msg, BUFFLEN, sock);
 	}
