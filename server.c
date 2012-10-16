@@ -45,13 +45,13 @@ void remove_user_info(int sock)
 
 void *client_thread(void *t)
 {
-	int len;
 	struct usr_info *info = (struct usr_info *)t;
 	char *msg = (char *) malloc(BUFFLEN);
 	struct chat_header *ch;
 	struct chat_data *data;
 
 	while (1) {
+		int len;
 		memset(msg, 0, BUFFLEN);
 		if ((len = recv(info->sock, msg, BUFFLEN - 1, 0)) <= 0)
 			break;
@@ -63,7 +63,7 @@ void *client_thread(void *t)
 #ifdef DEBUG
 				printf("%s: %s", ch->nick, data->data);
 #endif
-				frw_msg(info->sock, msg, len);
+				frw_msg(info->sock, msg, BUFFLEN);
 				break;
 			default:
 				break;

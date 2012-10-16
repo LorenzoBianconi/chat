@@ -13,17 +13,15 @@
 
 int client_auth(int sock, char *nick)
 {
-	int len = sizeof(struct chat_header) + sizeof(struct chat_auth_req) + 1;
-	char *buff = (char *) malloc(len);
-	memset(buff, 0, len);
+	char *buff = (char *) malloc(BUFFLEN);
+	memset(buff, 0, BUFFLEN);
 	/*
 	 * XXX: open authentication for the moment
 	 */
 	make_chat_header(buff, CHAT_AUTH_REQ, nick, NICKLEN);
 	make_auth_req(buff);
-	snd_msg(buff, len, sock);
+	snd_msg(buff, BUFFLEN, sock);
 	
-	buff = (char *) malloc(BUFFLEN);
 	memset(buff, 0, BUFFLEN);
 	if (read(sock, buff, BUFFLEN - 1) <= 0) {
 #ifdef DEBUG
