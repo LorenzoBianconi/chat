@@ -11,8 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 
 #define BUFFLEN		1024
 #define NICKLEN		128
@@ -52,7 +50,7 @@ struct chat_data {
 struct usr_info {
 	char nick[NICKLEN];
 	int sock;
-	pthread_t ptr;
+	unsigned long int ptr;
 	struct usr_info *next;
 };
 

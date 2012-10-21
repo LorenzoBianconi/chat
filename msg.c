@@ -7,6 +7,8 @@
  *
  */
 #include "msg.h"
+#include <sys/socket.h>
+#include <sys/types.h>
 
 int snd_msg(char *msg, int msglen, int sock)
 {

@@ -8,6 +8,8 @@
  */
 #include <netinet/in.h>
 #include <pthread.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include "msg.h"
 
 #define MAX_CONN	5 
