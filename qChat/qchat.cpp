@@ -2,7 +2,9 @@
 #include "ui_qchat.h"
 #include <QMessageBox>
 #include <QScrollBar>
-#include <QDateTime>
+#include <QTextTable>
+#include <QHostInfo>
+#include <QProcess>
 
 qChat::qChat(QWidget *parent) :
     QWidget(parent),
@@ -10,20 +12,21 @@ qChat::qChat(QWidget *parent) :
 {
     ui->setupUi(this);
 
+    _host = "lorenet.dyndns.org";
     _port = 9999;
+    _nick = get_hostname() + QString("@") + QHostInfo::localHostName();
     _sock = new QTcpSocket(this);
     _ws = CLIENT_NOT_AUTHENTICATED;
 
-    ui->sndButton->setEnabled(false);
-    ui->disconnectButton->setEnabled(false);
+    tableFormat.setBorder(0);
 
     connect(ui->msgEdit, SIGNAL(returnPressed()), this, SLOT(snd_txt_msg()));
-    connect(ui->sndButton, SIGNAL(clicked()), this, SLOT(snd_txt_msg()));
+    connect(_sock, SIGNAL(connected()), this, SLOT(client_connected()));
     connect(_sock, SIGNAL(readyRead()), this, SLOT(get_msg()));
-    connect(ui->disconnectButton, SIGNAL(clicked()), this, SLOT(close_sock()));
-    connect(ui->connectButton, SIGNAL(clicked()), this, SLOT(conn2server()));
     connect(_sock, SIGNAL(error(QAbstractSocket::SocketError)),
             this, SLOT(display_error(QAbstractSocket::SocketError)));
+
+    _sock->connectToHost(_host, _port);
 }
 
 qChat::~qChat()
@@ -31,10 +34,30 @@ qChat::~qChat()
     delete ui;
 }
 
-int qChat::mk_chat_header(char *msg, enum chat_msg type, QString nick)
+QString qChat::get_hostname()
+{
+    QStringList envVariables;
+    envVariables << "USERNAME.*" << "USER.*" << "USERDOMAIN.*"
+                 << "HOSTNAME.*" << "DOMAINNAME.*";
+
+    QStringList environment = QProcess::systemEnvironment();
+    foreach (QString string, envVariables) {
+        int index = environment.indexOf(QRegExp(string));
+        if (index != -1) {
+            QStringList stringList = environment.at(index).split('=');
+            if (stringList.size() == 2) {
+                return stringList.at(1).toUtf8();
+            }
+        }
+    }
+    return QString();
+}
+
+int qChat::mk_chat_header(char *msg, enum chat_msg type, int msglen, QString nick)
 {
     struct chat_header *ch = (struct chat_header *) msg;
     ch->type = type;
+    ch->len = sizeof(struct chat_header) + msglen;
     memcpy(ch->nick, nick.toLatin1().data(), nick.size());
     return 0;
 }
@@ -59,29 +82,54 @@ int qChat::snd_msg(char *msg)
     return 0;
 }
 
-int qChat::display_msg(QString nick, QString data, enum chat_msg msg_type)
+int qChat::display_msg(QString nick, QString data)
 {
-    QTime time = QTime::currentTime();
-    QString msg = "[" + time.toString() + "] ";
-    switch (msg_type) {
-    case CHAT_DATA:
-        msg += (nick + ": "+ data);
-        break;
-    case CHAT_USET_CONN:
-        msg += ("=========> " + nick + " is connected");
-        break;
-    case CHAT_USER_DISC:
-        msg += ("<========= " + nick + " is disconnected");
-        break;
-    default:
-        break;
-    }
-    msg += "\n";
     QTextCursor cursor(ui->textEdit->textCursor());
     cursor.movePosition(QTextCursor::End);
-    cursor.insertText(msg);
+    QTextTable *table = cursor.insertTable(1, 2, tableFormat);
+    table->cellAt(0, 0).firstCursorPosition().insertText('<' + nick + "> ");
+    table->cellAt(0, 1).firstCursorPosition().insertText(data);
     QScrollBar *bar = ui->textEdit->verticalScrollBar();
     bar->setValue(bar->maximum());
+    return 0;
+}
+
+int qChat::new_user(QString nick)
+{
+    QColor color = ui->textEdit->textColor();
+    ui->textEdit->setTextColor(Qt::gray);
+    ui->textEdit->append(tr("* %1 has joined").arg(nick));
+    ui->textEdit->setTextColor(color);
+    ui->userList->addItem(nick);
+    return 0;
+}
+
+int qChat::user_left(QString nick)
+{
+    QList<QListWidgetItem *> items = ui->userList->findItems(nick, Qt::MatchExactly);
+    if (items.isEmpty())
+        return -1;
+    delete items.at(0);
+    QColor color = ui->textEdit->textColor();
+    ui->textEdit->setTextColor(Qt::gray);
+    ui->textEdit->append(tr("* %1 has left").arg(nick));
+    ui->textEdit->setTextColor(color);
+    return 0;
+}
+
+int qChat::get_users_summary(char *ptr)
+{
+    struct chat_header *ch = (struct chat_header *) ptr;
+    struct chat_user_summary *tmp = (struct chat_user_summary *)(ptr + sizeof(struct chat_header));
+    struct chat_user_summary *end = (struct chat_user_summary *)(ptr + ch->len);
+
+    while (tmp < end) {
+        QString nick = QString(tmp->nick);
+        QList<QListWidgetItem *> items = ui->userList->findItems(nick, Qt::MatchExactly);
+        if (items.isEmpty())
+            new_user(nick);
+        tmp++;
+    }
     return 0;
 }
 
@@ -98,23 +146,20 @@ int qChat::get_msg()
         struct chat_auth_rep *res = (struct chat_auth_rep *)(ch + 1);
         if (res->res_type == AUTH_SUCCESS) {
             _ws = CLIENT_AUTHENTICATED;
-            ui->connectButton->setEnabled(false);
-            ui->disconnectButton->setEnabled(true);
-            ui->sndButton->setEnabled(true);
         } else
             QMessageBox::information(this, "Error", "Authentication failed");
         break;
     }
     case CHAT_DATA: {
         struct chat_data *data = (struct chat_data *)(ch + 1);
-        display_msg(QString(ch->nick), QString(data->data), CHAT_DATA);
+        display_msg(QString(ch->nick), QString(data->data));
         break;
     }
-    case CHAT_USET_CONN:
-        display_msg(QString(ch->nick) , "", CHAT_USET_CONN);
-        break;
     case CHAT_USER_DISC:
-        display_msg(QString(ch->nick) , "", CHAT_USER_DISC);
+        user_left(QString(ch->nick));
+        break;
+    case CHAT_USER_SUMMARY:
+        get_users_summary(buff);
         break;
     default:
         break;
@@ -122,25 +167,8 @@ int qChat::get_msg()
     return 0;
 }
 
-int qChat::conn2server()
+int qChat::client_connected()
 {
-    if (ui->nickEdit->text().isEmpty() && ui->serverEdit->text().isEmpty()) {
-            QMessageBox::warning(this, "Warning", "Missing server and nick info");
-            return -1;
-    } else if (ui->nickEdit->text().isEmpty()) {
-            QMessageBox::warning(this, "Warning", "Missing nick info");
-            return -1;
-    }
-    if (ui->serverEdit->text().isEmpty()) {
-            QMessageBox::warning(this, "Warning", "Missing server info");
-            return -1;
-    }
-
-    _host = ui->serverEdit->text();
-    _nick = ui->nickEdit->text();
-    if (!ui->portEdit->text().isEmpty())
-        _port = ui->portEdit->text().toInt();
-    _sock->connectToHost(_host, _port);
     client_auth();
     return 0;
 }
@@ -152,7 +180,7 @@ int qChat::client_auth()
     /*
      * XXX: open authentication for the moment
      */
-    mk_chat_header(buff, CHAT_AUTH_REQ, _nick);
+    mk_chat_header(buff, CHAT_AUTH_REQ, sizeof(struct chat_auth_req), _nick);
     mk_auth_req(buff);
     snd_msg(buff);
     return 0;
@@ -164,8 +192,8 @@ int qChat::snd_txt_msg()
         char buff[BUFFLEN];
         memset(buff, 0, BUFFLEN);
         QString data = ui->msgEdit->text();
-        display_msg(_nick, data, CHAT_DATA);
-        mk_chat_header(buff, CHAT_DATA, _nick);
+        display_msg(_nick, data);
+        mk_chat_header(buff, CHAT_DATA, data.size(), _nick);
         mk_chat_data(buff, data);
         snd_msg(buff);
         ui->msgEdit->clear();
@@ -186,15 +214,5 @@ int qChat::display_error(QAbstractSocket::SocketError err)
     default:
         break;
     }
-    return 0;
-}
-
-int qChat::close_sock()
-{
-    _ws = CLIENT_NOT_AUTHENTICATED;
-    _sock->close();
-    ui->connectButton->setEnabled(true);
-    ui->disconnectButton->setEnabled(false);
-    ui->sndButton->setEnabled(false);
     return 0;
 }

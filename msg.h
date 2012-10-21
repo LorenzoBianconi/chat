@@ -22,12 +22,13 @@ enum chat_msg {
 	CHAT_AUTH_REQ,
 	CHAT_AUTH_REP,
 	CHAT_DATA,
-	CHAT_USET_CONN,
-	CHAT_USER_DISC
+	CHAT_USER_DISC,
+	CHAT_USER_SUMMARY
 };
 
 struct chat_header {
 	enum chat_msg type;
+	int len;
 	char nick[NICKLEN];
 };
 
@@ -38,6 +39,10 @@ struct chat_auth_req {
 
 struct chat_auth_rep {
 	enum auth_res res_type;
+};
+
+struct chat_user_summary {
+	char nick[NICKLEN];
 };
 
 struct chat_data {
@@ -52,7 +57,8 @@ struct usr_info {
 };
 
 int snd_msg(char *, int, int);
-void make_chat_header(char *, enum chat_msg, char *, int);
+void make_chat_header(char *, enum chat_msg, int, char *, int);
 void make_chat_data(char *, char *, int);
 void make_auth_req(char *);
 void make_auth_rep(char *, enum auth_res );
+void make_chat_users_summary(char *, struct usr_info *);

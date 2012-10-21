@@ -13,6 +13,7 @@
 #define MAX_CONN	5 
 
 static struct usr_info *usrs = NULL;
+static int udepth = 0;
 static char server[] = "chat_server";
 
 void frw_msg(int sock, char *msg, int msglen)
@@ -36,6 +37,7 @@ void remove_user_info(int sock)
 				u2->next = u1->next;
 			close(u1->sock);
 			free(u1);
+			udepth--;
 			return;
 		}
 		u2 = u1;
@@ -71,7 +73,7 @@ void *client_thread(void *t)
 		}
 	}
 	memset(msg, 0, BUFFLEN);
-	make_chat_header(msg, CHAT_USER_DISC, info->nick, NICKLEN);
+	make_chat_header(msg, CHAT_USER_DISC, 0, info->nick, NICKLEN);
 	frw_msg(info->sock, msg, BUFFLEN);
 
 	remove_user_info(info->sock);
@@ -110,18 +112,24 @@ int client_auth(int sock)
 		}
 		uinfo->next = usrs;
 		usrs = uinfo;
+		udepth++;
 		buff = (char *) malloc(BUFFLEN);
 		memset(buff, 0, BUFFLEN);
-		make_chat_header(buff, CHAT_AUTH_REP, server, strlen(server));
+		make_chat_header(buff, CHAT_AUTH_REP,
+				 sizeof(struct chat_auth_rep),
+				 server, strlen(server));
 		make_auth_rep(buff, AUTH_SUCCESS);
 		if (snd_msg(buff, BUFFLEN, sock) < 0)
 			return -1;
+		memset(buff, 0, BUFFLEN);
+		make_chat_header(buff, CHAT_USER_SUMMARY,
+				 sizeof(struct chat_user_summary) * udepth,
+				 server, strlen(server));
+		make_chat_users_summary(buff, usrs);
+		frw_msg(-1, buff, BUFFLEN);
 #ifdef DEBUG
 		printf("authentication successful\n");
 #endif
-		memset(buff, 0, BUFFLEN);
-		make_chat_header(buff, CHAT_USET_CONN, ch->nick, NICKLEN);
-		frw_msg(sock, buff, BUFFLEN);
 		return 0;
 	}
 	return -1;

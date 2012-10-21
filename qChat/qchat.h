@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <QTcpSocket>
+#include <QTextTableFormat>
 #include "msg.h"
 
 namespace Ui {
@@ -19,25 +20,28 @@ public:
 private slots:
     int snd_txt_msg();
     int get_msg();
-    int conn2server();
+    int client_connected();
     int display_error(QAbstractSocket::SocketError err);
-    int close_sock();
 private:
     Ui::qChat *ui;
 
     QTcpSocket *_sock;
-    QByteArray _buffer;
-
     QString _host, _nick;
     int _port;
+
+    QTextTableFormat tableFormat;
 
     enum client_ws {CLIENT_AUTHENTICATED, CLIENT_NOT_AUTHENTICATED};
     enum client_ws _ws;
 
+    QString get_hostname();
+    int get_users_summary(char *);
     int snd_msg(char *);
-    int display_msg(QString, QString, enum chat_msg);
+    int new_user(QString);
+    int user_left(QString);
+    int display_msg(QString, QString);
     int client_auth();
-    int mk_chat_header(char *, enum chat_msg, QString);
+    int mk_chat_header(char *, enum chat_msg, int, QString);
     int mk_chat_data(char *, QString);
     int mk_auth_req(char *);
 };

@@ -20,11 +20,12 @@ int snd_msg(char *msg, int msglen, int sock)
 	return 0;
 }
 
-void make_chat_header(char *msg, enum chat_msg type,
+void make_chat_header(char *msg, enum chat_msg type, int msglen,
 		      char *nick, int nicklen)
 {
 	struct chat_header *ch = (struct chat_header *) msg;
 	ch->type = type;
+	ch->len = sizeof(struct chat_header) + msglen;
 	memcpy(ch->nick, nick, nicklen);
 }
 
@@ -44,4 +45,16 @@ void make_auth_rep(char *msg, enum auth_res res)
 
 void make_auth_req(char *msg)
 {
+}
+
+void make_chat_users_summary(char *msg, struct usr_info *users)
+{
+	struct chat_user_summary *usum = (struct chat_user_summary *) (msg +
+			sizeof(struct chat_header));
+	struct usr_info *tmp_user = users;
+	while (tmp_user) {
+		memcpy(usum->nick, tmp_user->nick, NICKLEN);
+		tmp_user = tmp_user->next;
+		usum += 1;
+	}
 }
