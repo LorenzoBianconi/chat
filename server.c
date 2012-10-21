@@ -61,7 +61,7 @@ void *client_thread(void *t)
 			case CHAT_DATA:
 				data = (struct chat_data *)(ch + 1);
 #ifdef DEBUG
-				printf("%s: %s", ch->nick, data->data);
+				printf("%s: %s\n", ch->nick, data->data);
 #endif
 				frw_msg(info->sock, msg, BUFFLEN);
 				break;
@@ -71,12 +71,9 @@ void *client_thread(void *t)
 		}
 	}
 	memset(msg, 0, BUFFLEN);
-	make_chat_header(msg, CHAT_DATA, info->nick, NICKLEN);
-	make_chat_data(msg, "is disconnected\n", DATALEN);
+	make_chat_header(msg, CHAT_USER_DISC, info->nick, NICKLEN);
 	frw_msg(info->sock, msg, BUFFLEN);
-#ifdef DEBUG
-	printf("%s", msg);
-#endif
+
 	remove_user_info(info->sock);
 	pthread_exit(NULL);
 }
@@ -123,8 +120,7 @@ int client_auth(int sock)
 		printf("authentication successful\n");
 #endif
 		memset(buff, 0, BUFFLEN);
-		make_chat_header(buff, CHAT_DATA, ch->nick, NICKLEN);
-		make_chat_data(buff, "is connected\n", DATALEN);
+		make_chat_header(buff, CHAT_USET_CONN, ch->nick, NICKLEN);
 		frw_msg(sock, buff, BUFFLEN);
 		return 0;
 	}

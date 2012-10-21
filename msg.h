@@ -18,7 +18,13 @@
 #define NICKLEN		128
 #define DATALEN		(BUFFLEN - sizeof(struct chat_header))
 
-enum chat_msg {CHAT_AUTH_REQ, CHAT_AUTH_REP, CHAT_DATA};
+enum chat_msg {
+	CHAT_AUTH_REQ,
+	CHAT_AUTH_REP,
+	CHAT_DATA,
+	CHAT_USET_CONN,
+	CHAT_USER_DISC
+};
 
 struct chat_header {
 	enum chat_msg type;
