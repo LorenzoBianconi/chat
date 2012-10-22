@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QTcpSocket>
 #include <QTextTableFormat>
+#include <QListWidgetItem>
 #include "msg.h"
 
 namespace Ui {
@@ -38,7 +39,7 @@ private:
     int get_users_summary(char *);
     int snd_msg(char *);
     int new_user(QString);
-    int user_left(QString);
+    int user_left(QListWidgetItem *);
     int display_msg(QString, QString);
     int client_auth();
     int mk_chat_header(char *, enum chat_msg, int, QString);

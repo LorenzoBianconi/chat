@@ -104,12 +104,10 @@ int qChat::new_user(QString nick)
     return 0;
 }
 
-int qChat::user_left(QString nick)
+int qChat::user_left(QListWidgetItem *item)
 {
-    QList<QListWidgetItem *> items = ui->userList->findItems(nick, Qt::MatchExactly);
-    if (items.isEmpty())
-        return -1;
-    delete items.at(0);
+    QString nick = item->data(Qt::UserRole).toString();
+    delete item;
     QColor color = ui->textEdit->textColor();
     ui->textEdit->setTextColor(Qt::gray);
     ui->textEdit->append(tr("* %1 has left").arg(nick));
@@ -120,15 +118,36 @@ int qChat::user_left(QString nick)
 int qChat::get_users_summary(char *ptr)
 {
     struct chat_header *ch = (struct chat_header *) ptr;
-    struct chat_user_summary *tmp = (struct chat_user_summary *)(ptr + sizeof(struct chat_header));
+    struct chat_user_summary *tmp = (struct chat_user_summary *)(ch + 1);
     struct chat_user_summary *end = (struct chat_user_summary *)(ptr + ch->len);
 
+    QList<QString> list;
     while (tmp < end) {
-        QString nick = QString(tmp->nick);
-        QList<QListWidgetItem *> items = ui->userList->findItems(nick, Qt::MatchExactly);
-        if (items.isEmpty())
-            new_user(nick);
+        list << QString(tmp->nick);
         tmp++;
+    }
+
+    foreach (QString n, list) {
+        QList<QListWidgetItem *> items = ui->userList->findItems(n, Qt::MatchExactly);
+        if (items.isEmpty()) {
+            qDebug() << "Adding entry " << n;
+            new_user(n);
+        }
+    }
+
+    for (int i = 0; i < ui->userList->count(); i++) {
+        bool found = false;
+        QListWidgetItem *item = ui->userList->item(i);
+        QString n = item->data(Qt::UserRole).toString();
+        for (int j = 0; j < list.size(); j++) {
+            if (list.at(j) == n) {
+                found = true;
+                break;
+            }
+        }
+        if (found == false && !n.isEmpty()) {
+            user_left(item);
+        }
     }
     return 0;
 }
@@ -155,9 +174,6 @@ int qChat::get_msg()
         display_msg(QString(ch->nick), QString(data->data));
         break;
     }
-    case CHAT_USER_DISC:
-        user_left(QString(ch->nick));
-        break;
     case CHAT_USER_SUMMARY:
         get_users_summary(buff);
         break;

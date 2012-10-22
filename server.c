@@ -75,8 +75,11 @@ void *client_thread(void *t)
 		}
 	}
 	memset(msg, 0, BUFFLEN);
-	make_chat_header(msg, CHAT_USER_DISC, 0, info->nick, NICKLEN);
-	frw_msg(info->sock, msg, BUFFLEN);
+	make_chat_header(msg, CHAT_USER_SUMMARY,
+			 sizeof(struct chat_user_summary) * udepth,
+			 server, strlen(server));
+	make_chat_users_summary(msg, usrs);
+	frw_msg(-1, msg, BUFFLEN);
 
 	remove_user_info(info->sock);
 	pthread_exit(NULL);
