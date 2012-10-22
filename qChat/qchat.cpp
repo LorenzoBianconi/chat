@@ -106,7 +106,7 @@ int qChat::new_user(QString nick)
 
 int qChat::user_left(QListWidgetItem *item)
 {
-    QString nick = item->data(Qt::UserRole).toString();
+    QString nick = item->text();
     delete item;
     QColor color = ui->textEdit->textColor();
     ui->textEdit->setTextColor(Qt::gray);
@@ -129,25 +129,22 @@ int qChat::get_users_summary(char *ptr)
 
     foreach (QString n, list) {
         QList<QListWidgetItem *> items = ui->userList->findItems(n, Qt::MatchExactly);
-        if (items.isEmpty()) {
-            qDebug() << "Adding entry " << n;
+        if (items.isEmpty())
             new_user(n);
-        }
     }
 
     for (int i = 0; i < ui->userList->count(); i++) {
         bool found = false;
         QListWidgetItem *item = ui->userList->item(i);
-        QString n = item->data(Qt::UserRole).toString();
+        QString n = item->text();
         for (int j = 0; j < list.size(); j++) {
             if (list.at(j) == n) {
                 found = true;
                 break;
             }
         }
-        if (found == false && !n.isEmpty()) {
+        if (found == false && !n.isEmpty())
             user_left(item);
-        }
     }
     return 0;
 }
