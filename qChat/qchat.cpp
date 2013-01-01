@@ -5,6 +5,7 @@
 #include <QTextTable>
 #include <QHostInfo>
 #include <QProcess>
+#include <QtEndian>
 
 qChat::qChat(QWidget *parent) :
     QWidget(parent),
@@ -56,8 +57,8 @@ QString qChat::get_hostname()
 int qChat::mk_chat_header(char *msg, enum chat_msg type, int msglen, QString nick)
 {
     struct chat_header *ch = (struct chat_header *) msg;
-    ch->type = type;
-    ch->len = sizeof(struct chat_header) + msglen;
+    ch->type = qToBigEndian((int)type);
+    ch->len = qToBigEndian((int)sizeof(struct chat_header) + msglen);
     memcpy(ch->nick, nick.toLatin1().data(), nick.size());
     return 0;
 }
@@ -119,7 +120,7 @@ int qChat::get_users_summary(char *ptr)
 {
     struct chat_header *ch = (struct chat_header *) ptr;
     struct chat_user_summary *tmp = (struct chat_user_summary *)(ch + 1);
-    struct chat_user_summary *end = (struct chat_user_summary *)(ptr + ch->len);
+    struct chat_user_summary *end = (struct chat_user_summary *)(ptr + qFromBigEndian(ch->len));
 
     QList<QString> list;
     while (tmp < end) {
@@ -157,10 +158,10 @@ int qChat::get_msg()
     _sock->read(buff, BUFFLEN);
 
     struct chat_header *ch = (struct chat_header *) buff;
-    switch (ch->type) {
+    switch (qFromBigEndian((int)ch->type)) {
     case CHAT_AUTH_REP: {
         struct chat_auth_rep *res = (struct chat_auth_rep *)(ch + 1);
-        if (res->res_type == AUTH_SUCCESS) {
+        if (qFromBigEndian((int)res->res_type) == AUTH_SUCCESS) {
             _ws = CLIENT_AUTHENTICATED;
         } else
             QMessageBox::information(this, "Error", "Authentication failed");

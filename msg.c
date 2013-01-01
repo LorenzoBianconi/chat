@@ -26,8 +26,8 @@ void make_chat_header(char *msg, enum chat_msg type, int msglen,
 		      char *nick, int nicklen)
 {
 	struct chat_header *ch = (struct chat_header *) msg;
-	ch->type = type;
-	ch->len = sizeof(struct chat_header) + msglen;
+	ch->type = htonl(type);
+	ch->len = htonl(sizeof(struct chat_header) + msglen);
 	memcpy(ch->nick, nick, nicklen);
 }
 
@@ -42,7 +42,7 @@ void make_auth_rep(char *msg, enum auth_res res)
 {
 	struct chat_auth_rep *rep = (struct chat_auth_rep *)
 		(msg + sizeof(struct chat_header));
-	rep->res_type = res;
+	rep->res_type = htonl(res);
 }
 
 void make_auth_req(char *msg)

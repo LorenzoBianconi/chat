@@ -61,7 +61,7 @@ void *client_thread(void *t)
 			break;
 		else {
 			ch = (struct chat_header *) msg;
-			switch (ch->type) {
+			switch (ntohl(ch->type)) {
 			case CHAT_DATA:
 				data = (struct chat_data *)(ch + 1);
 #ifdef DEBUG
@@ -96,7 +96,7 @@ int client_auth(int sock)
 		return -1;
 	}
 	struct chat_header *ch = (struct chat_header *) buff;
-	if (ch->type == CHAT_AUTH_REQ) {
+	if (ntohl(ch->type) == CHAT_AUTH_REQ) {
 		/*
 		 * XXX: open authentication for the moment
 		 */

@@ -24,7 +24,7 @@ enum chat_msg {
 };
 
 struct chat_header {
-	enum chat_msg type;
+	int type;
 	int len;
 	char nick[NICKLEN];
 };
@@ -35,7 +35,7 @@ struct chat_auth_req {
 };
 
 struct chat_auth_rep {
-	enum auth_res res_type;
+	int auth_res res_type;
 };
 
 struct chat_user_summary {
