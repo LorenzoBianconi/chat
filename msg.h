@@ -35,7 +35,7 @@ struct chat_auth_req {
 };
 
 struct chat_auth_rep {
-	int auth_res res_type;
+	int res_type;
 };
 
 struct chat_user_summary {
