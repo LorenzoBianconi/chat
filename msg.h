@@ -12,9 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define BUFFLEN		1024
-#define NICKLEN		128
-#define DATALEN		(BUFFLEN - sizeof(struct chat_header))
+#define BUFFLEN		2048
 
 enum chat_msg {
 	CHAT_AUTH_REQ,
@@ -25,8 +23,8 @@ enum chat_msg {
 
 struct chat_header {
 	int type;
-	int len;
-	char nick[NICKLEN];
+	int nicklen;
+	int datalen;
 };
 
 enum auth_res {AUTH_DEN, AUTH_SUCCESS};
@@ -38,24 +36,18 @@ struct chat_auth_rep {
 	int res_type;
 };
 
-struct chat_user_summary {
-	char nick[NICKLEN];
-};
-
-struct chat_data {
-	char data[DATALEN];
-};
-
 struct usr_info {
-	char nick[NICKLEN];
+	int nicklen;
+	char *nick;
 	int sock;
 	unsigned long int ptr;
 	struct usr_info *next;
 };
 
 int snd_msg(char *, int, int);
-void make_chat_header(char *, enum chat_msg, int, char *, int);
-void make_chat_data(char *, char *, int);
+void make_nick_info(char *, char *, int);
+void make_chat_header(char *, enum chat_msg, int, int);
+void make_chat_data(char *, char *, int, int);
 void make_auth_req(char *);
-void make_auth_rep(char *, enum auth_res );
-void make_chat_users_summary(char *, struct usr_info *);
+void make_auth_rep(char *, int, enum auth_res);
+void make_chat_users_summary(char *, int, struct usr_info *);

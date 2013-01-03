@@ -15,12 +15,14 @@
 #define MAX_CONN	5 
 
 static struct usr_info *usrs = NULL;
+static int un_depth = 0;
 static int udepth = 0;
 static char server[] = "chat_server";
 
 void frw_msg(int sock, char *msg, int msglen)
 {
 	struct usr_info *u = usrs;
+
 	while (u) {
 		if (u->sock != sock)
 			snd_msg(msg, msglen, u->sock);
@@ -31,6 +33,7 @@ void frw_msg(int sock, char *msg, int msglen)
 void remove_user_info(int sock)
 {
 	struct usr_info *u2, *u1 = usrs;
+
 	while (u1) {
 		if (u1->sock == sock) {
 			if (u1 == usrs)
@@ -38,8 +41,9 @@ void remove_user_info(int sock)
 			else
 				u2->next = u1->next;
 			close(u1->sock);
-			free(u1);
+			un_depth -= u1->nicklen;
 			udepth--;
+			free(u1);
 			return;
 		}
 		u2 = u1;
@@ -51,8 +55,6 @@ void *client_thread(void *t)
 {
 	struct usr_info *info = (struct usr_info *)t;
 	char *msg = (char *) malloc(BUFFLEN);
-	struct chat_header *ch;
-	struct chat_data *data;
 
 	while (1) {
 		int len;
@@ -60,27 +62,42 @@ void *client_thread(void *t)
 		if ((len = recv(info->sock, msg, BUFFLEN - 1, 0)) <= 0)
 			break;
 		else {
-			ch = (struct chat_header *) msg;
+			struct chat_header *ch = (struct chat_header *) msg;
 			switch (ntohl(ch->type)) {
-			case CHAT_DATA:
-				data = (struct chat_data *)(ch + 1);
+			case CHAT_DATA: {
 #ifdef DEBUG
-				printf("%s: %s\n", ch->nick, data->data);
+				int nicklen = ntohl(ch->nicklen);
+				int datalen = ntohl(ch->datalen);
+				char nick[nicklen + 1];
+				char data[datalen + 1];
+				memcpy(nick, (ch + 1), nicklen);
+				nick[nicklen] = '\0';
+				memcpy(data, (msg + sizeof(struct chat_header)
+						  + nicklen),
+					datalen);
+				data[datalen] = '\0';
+				printf("%s: %s\n", nick, data);
 #endif
-				frw_msg(info->sock, msg, BUFFLEN);
+				frw_msg(info->sock, msg, len);
 				break;
+			}
 			default:
 				break;
 			}
 		}
 	}
+	int data_len = un_depth + 4 * udepth;
+	int user_sum_len = sizeof(struct chat_header) + strlen(server) + data_len + 1;
+#ifdef DEBUG
+	printf("%s is disconnected!!\n", info->nick);
+#endif
 	remove_user_info(info->sock);
-	memset(msg, 0, BUFFLEN);
-	make_chat_header(msg, CHAT_USER_SUMMARY,
-			 sizeof(struct chat_user_summary) * udepth,
-			 server, strlen(server));
-	make_chat_users_summary(msg, usrs);
-	frw_msg(-1, msg, BUFFLEN);
+	msg = (char *) malloc(user_sum_len);
+	memset(msg, 0, user_sum_len);
+	make_chat_header(msg, CHAT_USER_SUMMARY, strlen(server), data_len);
+	make_nick_info(msg, server, strlen(server));
+	make_chat_users_summary(msg, strlen(server), usrs);
+	frw_msg(-1, msg, user_sum_len);
 
 	pthread_exit(NULL);
 }
@@ -89,6 +106,7 @@ int client_auth(int sock)
 {
 	char *buff = (char *) malloc(BUFFLEN);
 	memset(buff, 0, BUFFLEN);
+
 	if (read(sock, buff, BUFFLEN - 1) <= 0) {
 #ifdef DEBUG
 		printf("%s: error receiving data\n", __func__);
@@ -97,16 +115,20 @@ int client_auth(int sock)
 	}
 	struct chat_header *ch = (struct chat_header *) buff;
 	if (ntohl(ch->type) == CHAT_AUTH_REQ) {
+		int rep_len = sizeof(struct chat_header) + strlen(server) +
+			      sizeof(struct chat_auth_rep) + 1;
 		/*
 		 * XXX: open authentication for the moment
 		 */
-		struct usr_info *uinfo = (struct usr_info *)
-			malloc(sizeof(struct usr_info));
+		struct usr_info *uinfo = (struct usr_info *) malloc(sizeof(struct usr_info));
 		memset(uinfo, 0, sizeof(struct usr_info));
 		if (!uinfo)
 			return -1;
 		uinfo->sock = sock;
-		memcpy(uinfo->nick, ch->nick, NICKLEN);
+		uinfo->nicklen = ntohl(ch->nicklen);
+		uinfo->nick = malloc(uinfo->nicklen + 1);
+		memset(uinfo->nick, 0, uinfo->nicklen + 1);
+		memcpy(uinfo->nick, buff + sizeof(struct chat_header), uinfo->nicklen);
 		if (pthread_create(&uinfo->ptr, NULL, client_thread,
 				   (void *)uinfo) < 0) {
 #ifdef DEBUG
@@ -116,22 +138,30 @@ int client_auth(int sock)
 			return -1;
 		}
 		uinfo->next = usrs;
-		usrs = uinfo;
+		un_depth += uinfo->nicklen;
 		udepth++;
-		buff = (char *) malloc(BUFFLEN);
-		memset(buff, 0, BUFFLEN);
-		make_chat_header(buff, CHAT_AUTH_REP,
-				 sizeof(struct chat_auth_rep),
-				 server, strlen(server));
-		make_auth_rep(buff, AUTH_SUCCESS);
-		if (snd_msg(buff, BUFFLEN, sock) < 0)
+		usrs = uinfo;
+#ifdef DEBUG
+		printf("%s: %s is connected!!\n", __func__, uinfo->nick);
+#endif
+		buff = (char *) malloc(rep_len);
+		memset(buff, 0, rep_len);
+		make_chat_header(buff, CHAT_AUTH_REP, strlen(server),
+				 sizeof(struct chat_auth_rep));
+		make_nick_info(buff, server, strlen(server));
+		make_auth_rep(buff, strlen(server), AUTH_SUCCESS);
+		if (snd_msg(buff, rep_len, sock) < 0)
 			return -1;
-		memset(buff, 0, BUFFLEN);
-		make_chat_header(buff, CHAT_USER_SUMMARY,
-				 sizeof(struct chat_user_summary) * udepth,
-				 server, strlen(server));
-		make_chat_users_summary(buff, usrs);
-		frw_msg(-1, buff, BUFFLEN);
+		int data_len = un_depth + 4 * udepth;
+		int user_sum_len = sizeof(struct chat_header) +
+				   strlen(server) + data_len + 1;
+		buff = (char *) malloc(user_sum_len);
+		memset(buff, 0, user_sum_len);
+		make_chat_header(buff, CHAT_USER_SUMMARY, strlen(server),
+				 data_len);
+		make_nick_info(buff, server, strlen(server));
+		make_chat_users_summary(buff, strlen(server), usrs);
+		frw_msg(-1, buff, user_sum_len);
 #ifdef DEBUG
 		printf("authentication successful\n");
 #endif

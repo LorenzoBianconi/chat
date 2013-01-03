@@ -13,6 +13,7 @@
 int snd_msg(char *msg, int msglen, int sock)
 {
 	msg[msglen -1] = '\n';
+
 	if (send(sock, msg, msglen, 0) < 0) {
 #ifdef DEBUG
 		printf("error sending buffer\n");
@@ -22,26 +23,30 @@ int snd_msg(char *msg, int msglen, int sock)
 	return 0;
 }
 
-void make_chat_header(char *msg, enum chat_msg type, int msglen,
-		      char *nick, int nicklen)
+void make_chat_header(char *msg, enum chat_msg type, int nicklen, int msglen)
 {
 	struct chat_header *ch = (struct chat_header *) msg;
+
 	ch->type = htonl(type);
-	ch->len = htonl(sizeof(struct chat_header) + msglen);
-	memcpy(ch->nick, nick, nicklen);
+	ch->nicklen = htonl(nicklen);
+	ch->datalen = htonl(msglen);
 }
 
-void make_chat_data(char *msg, char *data, int datalen)
+void make_nick_info(char *msg, char *nick, int nicklen)
 {
-	struct chat_data *d = (struct chat_data *)
-		(msg + sizeof(struct chat_header));
-	memcpy(d->data, data, datalen);
+	memcpy(msg + sizeof(struct chat_header), nick, nicklen);
 }
 
-void make_auth_rep(char *msg, enum auth_res res)
+void make_chat_data(char *msg, char *data, int nicklen, int datalen)
 {
-	struct chat_auth_rep *rep = (struct chat_auth_rep *)
-		(msg + sizeof(struct chat_header));
+	memcpy(msg + sizeof(struct chat_header) + nicklen, data, datalen);
+}
+
+void make_auth_rep(char *msg, int nicklen, enum auth_res res)
+{
+	struct chat_auth_rep *rep = (struct chat_auth_rep *)(msg +
+			sizeof(struct chat_header) + nicklen);
+
 	rep->res_type = htonl(res);
 }
 
@@ -49,14 +54,16 @@ void make_auth_req(char *msg)
 {
 }
 
-void make_chat_users_summary(char *msg, struct usr_info *users)
+void make_chat_users_summary(char *msg, int nicklen, struct usr_info *users)
 {
-	struct chat_user_summary *usum = (struct chat_user_summary *) (msg +
-			sizeof(struct chat_header));
 	struct usr_info *tmp_user = users;
+	char *usum = (char *)(msg + sizeof(struct chat_header) + nicklen);
+
 	while (tmp_user) {
-		memcpy(usum->nick, tmp_user->nick, NICKLEN);
+		*((int *) usum) = htonl(tmp_user->nicklen);
+		usum += 4;
+		memcpy(usum, tmp_user->nick, tmp_user->nicklen);
+		usum += tmp_user->nicklen;
 		tmp_user = tmp_user->next;
-		usum += 1;
 	}
 }
