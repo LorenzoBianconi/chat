@@ -95,7 +95,7 @@ void *client_thread(void *t)
 	int user_sum_len = sizeof(struct chat_header) + 4 + strlen(server) + data_len + 1;
 	msg = (char *) malloc(user_sum_len);
 	memset(msg, 0, user_sum_len);
-	make_chat_header(msg, CHAT_USER_SUMMARY);
+	make_chat_header(msg, CHAT_USER_SUMMARY, user_sum_len);
 	make_nick_info(msg, server, strlen(server));
 	make_chat_users_summary(msg, strlen(server), usrs);
 	frw_msg(-1, msg, user_sum_len);
@@ -149,7 +149,7 @@ int client_auth(int sock)
 #endif
 		buff = (char *) malloc(rep_len);
 		memset(buff, 0, rep_len);
-		make_chat_header(buff, CHAT_AUTH_REP);
+		make_chat_header(buff, CHAT_AUTH_REP, rep_len);
 		make_nick_info(buff, server, strlen(server));
 		make_auth_rep(buff, strlen(server), AUTH_SUCCESS);
 		if (snd_msg(buff, rep_len, sock) < 0)
@@ -160,7 +160,7 @@ int client_auth(int sock)
 				   + data_len + 1;
 		buff = (char *) malloc(user_sum_len);
 		memset(buff, 0, user_sum_len);
-		make_chat_header(buff, CHAT_USER_SUMMARY);
+		make_chat_header(buff, CHAT_USER_SUMMARY, user_sum_len);
 		make_nick_info(buff, server, strlen(server));
 		make_chat_users_summary(buff, strlen(server), usrs);
 		frw_msg(-1, buff, user_sum_len);

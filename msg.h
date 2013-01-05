@@ -23,6 +23,7 @@ enum chat_msg {
 
 struct chat_header {
 	int type;
+	int len;
 };
 
 enum auth_res {AUTH_DEN, AUTH_SUCCESS};
@@ -44,7 +45,7 @@ struct usr_info {
 
 int snd_msg(char *, int, int);
 void make_nick_info(char *, char *, int);
-void make_chat_header(char *, enum chat_msg);
+void make_chat_header(char *, enum chat_msg, int);
 void make_chat_data(char *, char *, int, int);
 void make_auth_req(char *);
 void make_auth_rep(char *, int, enum auth_res);
