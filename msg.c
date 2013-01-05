@@ -32,7 +32,7 @@ void make_chat_header(char *msg, enum chat_msg type)
 
 void make_nick_info(char *msg, char *nick, int nicklen)
 {
-	*((int *) msg) = htonl(nicklen);
+	*((int *) (msg + sizeof(struct chat_header))) = htonl(nicklen);
 	memcpy(msg + sizeof(struct chat_header) + 4, nick, nicklen);
 }
 

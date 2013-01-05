@@ -66,12 +66,12 @@ void *client_thread(void *t)
 			switch (ntohl(ch->type)) {
 			case CHAT_DATA: {
 #ifdef DEBUG
-				int nicklen = ntohl(msg + sizeof(struct chat_header));
+				int nicklen = ntohl(*(int *)(msg + sizeof(struct chat_header)));
 				int datalen = len - (sizeof(struct chat_header)
 						     + 4 + nicklen);
 				char nick[nicklen + 1];
 				char data[datalen + 1];
-				memcpy(nick, (msg + sizeof(struct chat_header) + 4,
+				memcpy(nick, (char *)(msg + sizeof(struct chat_header) + 4),
 				       nicklen);
 				nick[nicklen] = '\0';
 				memcpy(data, (msg + sizeof(struct chat_header) + 4 + nicklen),
@@ -87,12 +87,12 @@ void *client_thread(void *t)
 			}
 		}
 	}
-	int data_len = un_depth + 4 * udepth;
-	int user_sum_len = sizeof(struct chat_header) + 4 + strlen(server) + data_len + 1;
 #ifdef DEBUG
 	printf("%s is disconnected!!\n", info->nick);
 #endif
 	remove_user_info(info->sock);
+	int data_len = un_depth + 4 * udepth;
+	int user_sum_len = sizeof(struct chat_header) + 4 + strlen(server) + data_len + 1;
 	msg = (char *) malloc(user_sum_len);
 	memset(msg, 0, user_sum_len);
 	make_chat_header(msg, CHAT_USER_SUMMARY);
