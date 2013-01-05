@@ -23,29 +23,28 @@ int snd_msg(char *msg, int msglen, int sock)
 	return 0;
 }
 
-void make_chat_header(char *msg, enum chat_msg type, int nicklen, int msglen)
+void make_chat_header(char *msg, enum chat_msg type)
 {
 	struct chat_header *ch = (struct chat_header *) msg;
 
 	ch->type = htonl(type);
-	ch->nicklen = htonl(nicklen);
-	ch->datalen = htonl(msglen);
 }
 
 void make_nick_info(char *msg, char *nick, int nicklen)
 {
-	memcpy(msg + sizeof(struct chat_header), nick, nicklen);
+	*((int *) msg) = htonl(nicklen);
+	memcpy(msg + sizeof(struct chat_header) + 4, nick, nicklen);
 }
 
 void make_chat_data(char *msg, char *data, int nicklen, int datalen)
 {
-	memcpy(msg + sizeof(struct chat_header) + nicklen, data, datalen);
+	memcpy(msg + sizeof(struct chat_header) + 4 + nicklen, data, datalen);
 }
 
 void make_auth_rep(char *msg, int nicklen, enum auth_res res)
 {
 	struct chat_auth_rep *rep = (struct chat_auth_rep *)(msg +
-			sizeof(struct chat_header) + nicklen);
+			sizeof(struct chat_header) + 4 + nicklen);
 
 	rep->res_type = htonl(res);
 }
@@ -57,7 +56,7 @@ void make_auth_req(char *msg)
 void make_chat_users_summary(char *msg, int nicklen, struct usr_info *users)
 {
 	struct usr_info *tmp_user = users;
-	char *usum = (char *)(msg + sizeof(struct chat_header) + nicklen);
+	char *usum = (char *)(msg + sizeof(struct chat_header) + 4 + nicklen);
 
 	while (tmp_user) {
 		*((int *) usum) = htonl(tmp_user->nicklen);
