@@ -22,8 +22,8 @@ enum chat_msg {
 };
 
 struct chat_header {
-	int type;
 	int len;
+	int type;
 };
 
 enum auth_res {AUTH_DEN, AUTH_SUCCESS};
