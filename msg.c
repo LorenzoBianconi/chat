@@ -27,8 +27,8 @@ void make_chat_header(char *msg, enum chat_msg type, int len)
 {
 	struct chat_header *ch = (struct chat_header *) msg;
 
-	ch->len = htonl(len);
 	ch->type = htonl(type);
+	ch->len = htonl(len);
 }
 
 void make_nick_info(char *msg, char *nick, int nicklen)

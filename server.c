@@ -67,8 +67,7 @@ void *client_thread(void *t)
 			case CHAT_DATA: {
 #ifdef DEBUG
 				int nicklen = ntohl(*(int *)(msg + sizeof(struct chat_header)));
-				int datalen = len - (sizeof(struct chat_header)
-						     + 4 + nicklen);
+				int datalen = ntohl(ch->len) - (sizeof(struct chat_header) + 4 + nicklen);
 				char nick[nicklen + 1];
 				char data[datalen + 1];
 				memcpy(nick, (char *)(msg + sizeof(struct chat_header) + 4),
