@@ -12,8 +12,6 @@
 
 int snd_msg(char *msg, int msglen, int sock)
 {
-	msg[msglen -1] = '\n';
-
 	if (send(sock, msg, msglen, 0) < 0) {
 #ifdef DEBUG
 		printf("error sending buffer\n");

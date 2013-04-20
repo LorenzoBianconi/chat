@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <arpa/inet.h>
 #include "msg.h"
 
 #define MAX_CONN	5 
@@ -97,7 +98,7 @@ void *client_thread(void *t)
 #endif
 	remove_user_info(info->sock);
 	data_len = 4 + strlen(server) + un_depth + 4 * udepth;
-	user_sum_len = sizeof(struct chat_header) + data_len + 1;
+	user_sum_len = sizeof(struct chat_header) + data_len;
 	msg = (char *) malloc(user_sum_len);
 	memset(msg, 0, user_sum_len);
 	make_chat_header(msg, CHAT_USER_SUMMARY, data_len);
@@ -124,7 +125,7 @@ int client_auth(int sock)
 		int user_sum_len;
 		int nicklen = ntohl(*(int *)(buff + sizeof(struct chat_header)));
 		int data_len = 4 + strlen(server) + sizeof(struct chat_auth_rep);
-		int rep_len = sizeof(struct chat_header) + data_len + 1;
+		int rep_len = sizeof(struct chat_header) + data_len;
 		/*
 		 * XXX: open authentication for the moment
 		 */
@@ -161,7 +162,7 @@ int client_auth(int sock)
 		if (snd_msg(buff, rep_len, sock) < 0)
 			return -1;
 		data_len = 4 + strlen(server) + un_depth + 4 * udepth;
-		user_sum_len = sizeof(struct chat_header) + data_len + 1;
+		user_sum_len = sizeof(struct chat_header) + data_len;
 		buff = (char *) malloc(user_sum_len);
 		memset(buff, 0, user_sum_len);
 		make_chat_header(buff, CHAT_USER_SUMMARY, data_len);
