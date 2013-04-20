@@ -19,10 +19,10 @@ public:
     explicit qChat(QWidget *parent = 0);
     ~qChat();
 private slots:
-    int snd_txt_msg();
-    int get_msg();
-    int client_connected();
-    int display_error(QAbstractSocket::SocketError err);
+    int sndMsg();
+    int getMsg();
+    int clientAuth();
+    int displayError(QAbstractSocket::SocketError err);
 private:
     Ui::qChat *ui;
 
@@ -35,16 +35,16 @@ private:
     enum client_ws {CLIENT_AUTHENTICATED, CLIENT_NOT_AUTHENTICATED};
     enum client_ws _ws;
 
-    QString get_hostname();
-    int get_users_summary(char *);
-    int snd_msg(char *);
-    int new_user(QString);
-    int user_left(QListWidgetItem *);
-    int display_msg(QString, QString);
-    int client_auth();
-    int mk_chat_header(char *, enum chat_msg, int, QString);
-    int mk_chat_data(char *, QString);
-    int mk_auth_req(char *);
+    QString getHostname();
+    int getUserSummary(char *);
+    int newUser(QString);
+    int userLeft(QListWidgetItem *);
+    int displayMsg(QString, QString);
+
+    int mkChatHeader(char *, enum chat_msg, int);
+    int mkSenderHeader(char *, QString);
+    int mkChatData(char *, QString);
+    int mkAuthReq(char *);
 };
 
 #endif // QCHAT_H
