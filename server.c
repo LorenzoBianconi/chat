@@ -10,7 +10,6 @@
 #include <pthread.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <arpa/inet.h>
 #include "msg.h"
 
 #define MAX_CONN	5 
