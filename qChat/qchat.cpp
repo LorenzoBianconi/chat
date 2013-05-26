@@ -140,7 +140,7 @@ int qChat::getUserSummary(char *msg)
     char *tmp, *end, *sInfo = (char *)(ch + 1);
 
     tmp = sInfo + qFromBigEndian(*((int *)sInfo)) + 4;
-    end = sInfo + qFromBigEndian(ch->dlen);
+    end = sInfo + qFromBigEndian(ch->dlen) + 1;
 
     QList<QString> list;
     while (tmp < end) {
@@ -217,8 +217,8 @@ int qChat::getMsg()
 
 int qChat::clientAuth()
 {
-    int bufflen = sizeof(struct chat_header) + 4 + _nick.size() +
-                  sizeof(struct chat_auth_req);
+    int datalen = 4 + _nick.size() + sizeof(struct chat_auth_req);
+    int bufflen = sizeof(struct chat_header) + datalen + 1;
     char *buff = (char *) malloc(bufflen);
     if (!buff) {
         qDebug() << "buffer allocation failed";
@@ -228,7 +228,7 @@ int qChat::clientAuth()
     /*
      * XXX: open authentication for the moment
      */
-    mkChatHeader(buff, CHAT_AUTH_REQ, bufflen);
+    mkChatHeader(buff, CHAT_AUTH_REQ, datalen);
     mkSenderHeader(buff, _nick);
     mkAuthReq(buff);
 
@@ -244,7 +244,8 @@ int qChat::sndMsg()
         displayMsg(_nick, data);
         ui->msgEdit->clear();
 
-        int bufflen = sizeof(chat_header) + 4 + _nick.size() + data.size();
+        int datalen = 4 + _nick.size() + data.size();
+        int bufflen = sizeof(chat_header) +  datalen + 1;
         char *buff = (char *) malloc(bufflen);
         if (!buff) {
             qDebug() << "buffer allocation failed";
@@ -252,7 +253,7 @@ int qChat::sndMsg()
         }
         memset(buff, 0, bufflen);
 
-        mkChatHeader(buff, CHAT_DATA, bufflen);
+        mkChatHeader(buff, CHAT_DATA, datalen);
         mkSenderHeader(buff, _nick);
         mkChatData(buff, data);
 
