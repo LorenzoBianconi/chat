@@ -75,12 +75,9 @@ void *client_thread(void *t)
 				char nick[nicklen + 1];
 				char data[datalen + 1];
 
-				memset(nick, 0, nicklen + 1);
-				memset(data, 0, datalen + 1);
-
-				memcpy(nick, (char *)(msg + sizeof(struct chat_header) + 4),
+				strncpy(nick, (char *)(msg + sizeof(struct chat_header) + 4),
 				       nicklen);
-				memcpy(data, (msg + sizeof(struct chat_header) + 4 + nicklen),
+				strncpy(data, (msg + sizeof(struct chat_header) + 4 + nicklen),
 				       datalen);
 				printf("%s: %s\n", nick, data);
 #endif
@@ -97,7 +94,7 @@ void *client_thread(void *t)
 #endif
 	remove_user_info(info->sock);
 	data_len = 4 + strlen(server) + un_depth + 4 * udepth;
-	user_sum_len = sizeof(struct chat_header) + data_len;
+	user_sum_len = sizeof(struct chat_header) + data_len + 1;
 	msg = (char *) malloc(user_sum_len);
 	memset(msg, 0, user_sum_len);
 	make_chat_header(msg, CHAT_USER_SUMMARY, data_len);
@@ -124,7 +121,7 @@ int client_auth(int sock)
 		int user_sum_len;
 		int nicklen = ntohl(*(int *)(buff + sizeof(struct chat_header)));
 		int data_len = 4 + strlen(server) + sizeof(struct chat_auth_rep);
-		int rep_len = sizeof(struct chat_header) + data_len;
+		int rep_len = sizeof(struct chat_header) + data_len + 1;
 		/*
 		 * XXX: open authentication for the moment
 		 */
@@ -136,8 +133,7 @@ int client_auth(int sock)
 		uinfo->sock = sock;
 		uinfo->nicklen = nicklen;
 		uinfo->nick = malloc(uinfo->nicklen + 1);
-		memset(uinfo->nick, 0, uinfo->nicklen + 1);
-		memcpy(uinfo->nick, buff + sizeof(struct chat_header) + 4, uinfo->nicklen);
+		strncpy(uinfo->nick, buff + sizeof(struct chat_header) + 4, uinfo->nicklen);
 		if (pthread_create(&uinfo->ptr, NULL, client_thread,
 				   (void *)uinfo) < 0) {
 #ifdef DEBUG
@@ -161,7 +157,7 @@ int client_auth(int sock)
 		if (snd_msg(buff, rep_len, sock) < 0)
 			return -1;
 		data_len = 4 + strlen(server) + un_depth + 4 * udepth;
-		user_sum_len = sizeof(struct chat_header) + data_len;
+		user_sum_len = sizeof(struct chat_header) + data_len + 1;
 		buff = (char *) malloc(user_sum_len);
 		memset(buff, 0, user_sum_len);
 		make_chat_header(buff, CHAT_USER_SUMMARY, data_len);
