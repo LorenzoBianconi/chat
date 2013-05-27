@@ -140,7 +140,7 @@ int qChat::getUserSummary(char *msg)
     char *tmp, *end, *sInfo = (char *)(ch + 1);
 
     tmp = sInfo + qFromBigEndian(*((int *)sInfo)) + 4;
-    end = sInfo + qFromBigEndian(ch->dlen) + 1;
+    end = sInfo + qFromBigEndian(ch->dlen);
 
     QList<QString> list;
     while (tmp < end) {
@@ -185,11 +185,13 @@ int qChat::getMsg()
     }
 
     struct chat_header *ch = (struct chat_header *) buff;
+    int type = qFromBigEndian(ch->type);
+    int dlen = qFromBigEndian(ch->dlen);
     char *sInfo = (char *)(ch + 1);
     int nicklen = qFromBigEndian(*((int *)sInfo));
     char *data = (char *)(sInfo + 4 + nicklen);
 
-    switch (qFromBigEndian((int)ch->type)) {
+    switch (type) {
     case CHAT_AUTH_REP: {
         struct chat_auth_rep *res = (struct chat_auth_rep *)data;
 
@@ -202,7 +204,8 @@ int qChat::getMsg()
         break;
     }
     case CHAT_DATA: {
-        displayMsg(QString(sInfo + 4).mid(0, nicklen), QString(data));
+        int len = dlen - (4 + nicklen);
+        displayMsg(QString(sInfo + 4).mid(0, nicklen), QString(data).mid(0, len));
         break;
     }
     case CHAT_USER_SUMMARY: {
@@ -218,7 +221,7 @@ int qChat::getMsg()
 int qChat::clientAuth()
 {
     int datalen = 4 + _nick.size() + sizeof(struct chat_auth_req);
-    int bufflen = sizeof(struct chat_header) + datalen + 1;
+    int bufflen = sizeof(struct chat_header) + datalen;
     char *buff = (char *) malloc(bufflen);
     if (!buff) {
         qDebug() << "buffer allocation failed";
@@ -245,7 +248,7 @@ int qChat::sndMsg()
         ui->msgEdit->clear();
 
         int datalen = 4 + _nick.size() + data.size();
-        int bufflen = sizeof(chat_header) +  datalen + 1;
+        int bufflen = sizeof(chat_header) +  datalen;
         char *buff = (char *) malloc(bufflen);
         if (!buff) {
             qDebug() << "buffer allocation failed";
