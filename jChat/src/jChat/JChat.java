@@ -1,5 +1,6 @@
 package jChat;
 
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.EventQueue;
@@ -16,10 +17,14 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.JTextPane;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.border.LineBorder;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 
 import java.io.*;
 import java.net.*;
@@ -172,8 +177,7 @@ public class JChat extends JFrame {
 				byte[] data = new byte[buff.remaining()];
 				while (buff.remaining() > 0)
 					buff.get(data);
-				_textArea.append("<" + new String(nick) + "> " + new String(data) + "\n");
-				_textArea.setCaretPosition(_textArea.getDocument().getLength());
+				displayMsg("<" + new String(nick) + "> " + new String(data) + "\n", true);
 				break;
 			case CHAT_USER_SUMMARY:
 				DefaultListModel<String> users = new DefaultListModel<String>();
@@ -187,8 +191,7 @@ public class JChat extends JFrame {
 					String user = users.elementAt(i);
 					if (_userListModel.indexOf(user) < 0) {
 						/* new user */
-						_textArea.append("*" + user + " has joined\n" );
-						_textArea.setCaretPosition(_textArea.getDocument().getLength());
+						displayMsg("*" + user + " has joined\n", false);
 						_userListModel.addElement(user);
 					}
 				}
@@ -196,8 +199,7 @@ public class JChat extends JFrame {
 					String user = _userListModel.elementAt(i);
 					if (users.indexOf(user) < 0) {
 						/* left user */
-						_textArea.append("*" + user + " has left\n");
-						_textArea.setCaretPosition(_textArea.getDocument().getLength());
+						displayMsg("*" + user + " has left\n", false);
 						_userListModel.removeElement(user);
 					}
 				}
@@ -237,7 +239,9 @@ public class JChat extends JFrame {
 	/* UI elements */
 	private JPanel _contentPanel;
 	private JScrollPane _textScrollPanel, _userScrollPanel, _msgScrollPanel;
-	private JTextArea _textArea, _msgArea;
+	private JTextArea _msgArea;
+	private JTextPane _textPane;
+	private int _offset;
 	private DefaultListModel<String> _userListModel;
 	private JList<String> _userList;
 	/* Network elements */
@@ -252,8 +256,8 @@ public class JChat extends JFrame {
 					JChatMessage.sendMsg(_sock, _nick,
 										 msg.substring(0, msg.length() - 1),
 										 JChatMsgType.CHAT_DATA);
-					_textArea.append("<" + _nick + "> " + msg);
-					_textArea.setCaretPosition(_textArea.getDocument().getLength());
+					displayMsg("<" + _nick + "> " + msg, true);
+					_textPane.setCaretPosition(_textPane.getDocument().getLength());
 				}
 				_msgArea.setText("");
 			}
@@ -264,6 +268,7 @@ public class JChat extends JFrame {
 
 	/* UI constructor */
 	private void JChatUI() {
+		_offset = 0;
 		Border border = new LineBorder(Color.GRAY);
 		
 		_contentPanel = new JPanel();
@@ -275,14 +280,12 @@ public class JChat extends JFrame {
 		GridBagConstraints gbc = new GridBagConstraints();
 		gbc.insets = new Insets(2, 2, 2, 2);
 		
-		_textArea = new JTextArea();
-		_textArea.setEditable(false);
-		_textArea.setLineWrap(true);
-		_textArea.setWrapStyleWord(false);
+		_textPane = new JTextPane();
+		_textPane.setEditable(false);
 		_textScrollPanel = new JScrollPane();
 		_textScrollPanel.setBorder(border);
 		_textScrollPanel.setPreferredSize(new Dimension(400, 300));
-		_textScrollPanel.getViewport().add(_textArea);
+		_textScrollPanel.getViewport().add(_textPane);
 		gbc.gridx = 0;
 		gbc.gridy = 0;
 		gbc.weightx = 0.9;
@@ -345,7 +348,20 @@ public class JChat extends JFrame {
 			System.exit(ABORT);
 		}
 	}
-
+	private void displayMsg(String msg, boolean data) {
+		try {
+			StyledDocument doc = _textPane.getStyledDocument();
+			SimpleAttributeSet att = new SimpleAttributeSet();
+			if (data == true)
+				StyleConstants.setForeground(att, Color.BLACK);
+			else
+				StyleConstants.setForeground(att, Color.BLUE);
+			doc.insertString(_offset, msg, att);
+			_offset += msg.length();
+			_textPane.setCaretPosition(_textPane.getDocument().getLength());
+		} catch (Exception e) {}
+	}
+	
 	public static void main(String[] args) {
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
