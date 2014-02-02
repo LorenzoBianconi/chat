@@ -76,9 +76,9 @@ void *client_thread(void *t)
 				char data[datalen + 1];
 
 				strncpy(nick, (char *)(msg + sizeof(struct chat_header) + 4),
-				       nicklen);
+				       nicklen + 1);
 				strncpy(data, (msg + sizeof(struct chat_header) + 4 + nicklen),
-				       datalen);
+				       datalen + 1);
 				printf("%s: %s\n", nick, data);
 #endif
 				frw_msg(info->sock, msg, len);
