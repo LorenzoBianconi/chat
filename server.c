@@ -75,10 +75,13 @@ void *client_thread(void *t)
 				char nick[nicklen + 1];
 				char data[datalen + 1];
 
+				memset((void *)nick, 0, nicklen + 1);
+				memset((void *)data, 0, datalen + 1);
+
 				strncpy(nick, (char *)(msg + sizeof(struct chat_header) + 4),
-				       nicklen + 1);
+				       nicklen);
 				strncpy(data, (msg + sizeof(struct chat_header) + 4 + nicklen),
-				       datalen + 1);
+				       datalen);
 				printf("%s: %s\n", nick, data);
 #endif
 				frw_msg(info->sock, msg, len);
