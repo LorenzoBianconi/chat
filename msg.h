@@ -19,7 +19,8 @@ enum chat_msg {
 	CHAT_AUTH_REQ,
 	CHAT_AUTH_REP,
 	CHAT_DATA,
-	CHAT_USER_SUMMARY
+	CHAT_USER_SUMMARY,
+	CHAT_REQ_USER_SUMMARY,
 };
 
 struct chat_header {

@@ -66,20 +66,20 @@ void *client_thread(void *t)
 			break;
 		else {
 			struct chat_header *ch = (struct chat_header *) msg;
+#ifdef DEBUG
+			int nicklen = ntohl(*(int *)(msg + sizeof(struct chat_header)));
+			char nick[nicklen + 1];
+			memset((void *)nick, 0, nicklen + 1);
+			strncpy(nick, (char *)(msg + sizeof(struct chat_header) + 4),
+			        nicklen);
 
+#endif
 			switch (ntohl(ch->type)) {
 			case CHAT_DATA: {
 #ifdef DEBUG
-				int nicklen = ntohl(*(int *)(msg + sizeof(struct chat_header)));
 				int datalen = ntohl(ch->dlen) - (4 + nicklen);
-				char nick[nicklen + 1];
 				char data[datalen + 1];
-
-				memset((void *)nick, 0, nicklen + 1);
 				memset((void *)data, 0, datalen + 1);
-
-				strncpy(nick, (char *)(msg + sizeof(struct chat_header) + 4),
-				       nicklen);
 				strncpy(data, (msg + sizeof(struct chat_header) + 4 + nicklen),
 				       datalen);
 				printf("%s: %s\n", nick, data);
@@ -87,6 +87,18 @@ void *client_thread(void *t)
 				frw_msg(info->sock, msg, len);
 				break;
 			}
+			case CHAT_REQ_USER_SUMMARY:
+#ifdef DEBUG
+				printf("%s: USER_SUMMARY Request\n", nick);
+#endif
+				data_len = 4 + strlen(server) + un_depth + 4 * udepth;
+				user_sum_len = sizeof(struct chat_header) + data_len;
+				msg = (char *) malloc(user_sum_len);
+				memset(msg, 0, user_sum_len);
+				make_chat_header(msg, CHAT_USER_SUMMARY, data_len);
+				make_nick_info(msg, server, strlen(server));
+				make_chat_users_summary(msg, strlen(server), usrs);
+				snd_msg(msg, user_sum_len, info->sock);
 			default:
 				break;
 			}
@@ -136,6 +148,7 @@ int client_auth(int sock)
 		uinfo->sock = sock;
 		uinfo->nicklen = nicklen;
 		uinfo->nick = malloc(uinfo->nicklen + 1);
+		memset((void *)uinfo->nick, 0, uinfo->nicklen + 1);
 		strncpy(uinfo->nick, buff + sizeof(struct chat_header) + 4, uinfo->nicklen);
 		if (pthread_create(&uinfo->ptr, NULL, client_thread,
 				   (void *)uinfo) < 0) {
