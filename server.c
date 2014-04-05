@@ -19,7 +19,7 @@ static int un_depth = 0;
 static int udepth = 0;
 static char server[] = "chat_server";
 
-void frw_msg(int sock, char *msg, int msglen)
+static void frw_msg(int sock, char *msg, int msglen)
 {
 	struct usr_info *u = usrs;
 
@@ -30,7 +30,7 @@ void frw_msg(int sock, char *msg, int msglen)
 	}
 }
 
-void remove_user_info(int sock)
+static void remove_user_info(int sock)
 {
 	struct usr_info *u2, *u1 = usrs;
 
@@ -51,10 +51,10 @@ void remove_user_info(int sock)
 	}
 }
 
-void *client_thread(void *t)
+static void *client_thread(void *t)
 {
 	struct usr_info *info = (struct usr_info *)t;
-	char *msg = (char *) malloc(BUFFLEN);
+	char msg[BUFFLEN];
 	int data_len;
 	int user_sum_len;
 
@@ -65,7 +65,7 @@ void *client_thread(void *t)
 		if ((len = recv(info->sock, msg, BUFFLEN - 1, 0)) <= 0)
 			break;
 		else {
-			struct chat_header *ch = (struct chat_header *) msg;
+			struct chat_header *ch = (struct chat_header *)msg;
 #ifdef DEBUG
 			int nicklen = ntohl(*(int *)(msg + sizeof(struct chat_header)));
 			char nick[nicklen + 1];
@@ -87,18 +87,19 @@ void *client_thread(void *t)
 				frw_msg(info->sock, msg, len);
 				break;
 			}
-			case CHAT_REQ_USER_SUMMARY:
+			case CHAT_REQ_USER_SUMMARY: {
 #ifdef DEBUG
 				printf("%s: USER_SUMMARY Request\n", nick);
 #endif
 				data_len = 4 + strlen(server) + un_depth + 4 * udepth;
 				user_sum_len = sizeof(struct chat_header) + data_len;
-				msg = (char *) malloc(user_sum_len);
-				memset(msg, 0, user_sum_len);
-				make_chat_header(msg, CHAT_USER_SUMMARY, data_len);
-				make_nick_info(msg, server, strlen(server));
-				make_chat_users_summary(msg, strlen(server), usrs);
-				snd_msg(msg, user_sum_len, info->sock);
+				char umsg[user_sum_len];
+				memset(umsg, 0, user_sum_len);
+				make_chat_header(umsg, CHAT_USER_SUMMARY, data_len);
+				make_nick_info(umsg, server, strlen(server));
+				make_chat_users_summary(umsg, strlen(server), usrs);
+				snd_msg(umsg, user_sum_len, info->sock);
+			}
 			default:
 				break;
 			}
@@ -110,19 +111,19 @@ void *client_thread(void *t)
 	remove_user_info(info->sock);
 	data_len = 4 + strlen(server) + un_depth + 4 * udepth;
 	user_sum_len = sizeof(struct chat_header) + data_len;
-	msg = (char *) malloc(user_sum_len);
-	memset(msg, 0, user_sum_len);
-	make_chat_header(msg, CHAT_USER_SUMMARY, data_len);
-	make_nick_info(msg, server, strlen(server));
-	make_chat_users_summary(msg, strlen(server), usrs);
-	frw_msg(-1, msg, user_sum_len);
+	char umsg[user_sum_len];
+	memset(umsg, 0, user_sum_len);
+	make_chat_header(umsg, CHAT_USER_SUMMARY, data_len);
+	make_nick_info(umsg, server, strlen(server));
+	make_chat_users_summary(umsg, strlen(server), usrs);
+	frw_msg(-1, umsg, user_sum_len);
 
 	pthread_exit(NULL);
 }
 
-int client_auth(int sock)
+static int client_auth(int sock)
 {
-	char *buff = (char *) malloc(BUFFLEN);
+	char buff[BUFFLEN];
 	memset(buff, 0, BUFFLEN);
 
 	if (read(sock, buff, BUFFLEN - 1) <= 0) {
@@ -131,7 +132,7 @@ int client_auth(int sock)
 #endif
 		return -1;
 	}
-	struct chat_header *ch = (struct chat_header *) buff;
+	struct chat_header *ch = (struct chat_header *)buff;
 	if (ntohl(ch->type) == CHAT_AUTH_REQ) {
 		int user_sum_len;
 		int nicklen = ntohl(*(int *)(buff + sizeof(struct chat_header)));
@@ -165,21 +166,21 @@ int client_auth(int sock)
 #ifdef DEBUG
 		printf("%s: %s is connected!!\n", __func__, uinfo->nick);
 #endif
-		buff = (char *) malloc(rep_len);
-		memset(buff, 0, rep_len);
-		make_chat_header(buff, CHAT_AUTH_REP, data_len);
-		make_nick_info(buff, server, strlen(server));
-		make_auth_rep(buff, strlen(server), AUTH_SUCCESS);
-		if (snd_msg(buff, rep_len, sock) < 0)
+		char rrep[rep_len];
+		memset(rrep, 0, rep_len);
+		make_chat_header(rrep, CHAT_AUTH_REP, data_len);
+		make_nick_info(rrep, server, strlen(server));
+		make_auth_rep(rrep, strlen(server), AUTH_SUCCESS);
+		if (snd_msg(rrep, rep_len, sock) < 0)
 			return -1;
 		data_len = 4 + strlen(server) + un_depth + 4 * udepth;
 		user_sum_len = sizeof(struct chat_header) + data_len;
-		buff = (char *) malloc(user_sum_len);
-		memset(buff, 0, user_sum_len);
-		make_chat_header(buff, CHAT_USER_SUMMARY, data_len);
-		make_nick_info(buff, server, strlen(server));
-		make_chat_users_summary(buff, strlen(server), usrs);
-		frw_msg(-1, buff, user_sum_len);
+		char umsg[user_sum_len];
+		memset(umsg, 0, user_sum_len);
+		make_chat_header(umsg, CHAT_USER_SUMMARY, data_len);
+		make_nick_info(umsg, server, strlen(server));
+		make_chat_users_summary(umsg, strlen(server), usrs);
+		frw_msg(-1, umsg, user_sum_len);
 #ifdef DEBUG
 		printf("authentication successful\n");
 #endif
