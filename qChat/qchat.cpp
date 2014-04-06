@@ -56,9 +56,9 @@ QString qChat::getHostname()
     return QString();
 }
 
-int qChat::mkChatHeader(char *msg, enum chat_msg type, int msglen)
+int qChat::mkChatHeader(char *msg,chat_msg type, int msglen)
 {
-    struct chat_header *ch = (struct chat_header *) msg;
+    chat_header *ch = (chat_header *)msg;
 
     ch->type = qToBigEndian((int)type);
     ch->dlen = qToBigEndian(msglen);
@@ -68,7 +68,7 @@ int qChat::mkChatHeader(char *msg, enum chat_msg type, int msglen)
 
 int qChat::mkSenderHeader(char *msg, QString nick)
 {
-    char *sinfo = (char *)(msg + sizeof(struct chat_header));
+    char *sinfo = (char *)(msg + sizeof(chat_header));
 
     *((int *)sinfo) = qToBigEndian(nick.size());
     memcpy(sinfo + 4, nick.toLatin1().data(), nick.size());
@@ -78,7 +78,7 @@ int qChat::mkSenderHeader(char *msg, QString nick)
 
 int qChat::mkChatData(char *msg, QString text)
 {
-    char *sInfo = (char *)(msg + sizeof(struct chat_header));
+    char *sInfo = (char *)(msg + sizeof(chat_header));
     char *data = (char *)(sInfo + 4 + _nick.size());
 
     memcpy(data, text.toLatin1().data(), text.size());
@@ -136,7 +136,7 @@ int qChat::userLeft(QListWidgetItem *item)
 
 int qChat::getUserSummary(char *msg)
 {
-    struct chat_header *ch = (struct chat_header *) msg;
+    chat_header *ch = (chat_header *) msg;
     char *tmp, *end, *sInfo = (char *)(ch + 1);
 
     tmp = sInfo + qFromBigEndian(*((int *)sInfo)) + 4;
@@ -184,7 +184,7 @@ int qChat::getMsg()
         return -1;
     }
 
-    struct chat_header *ch = (struct chat_header *) buff;
+    chat_header *ch = (chat_header *)buff;
     int type = qFromBigEndian(ch->type);
     int dlen = qFromBigEndian(ch->dlen);
     char *sInfo = (char *)(ch + 1);
@@ -193,7 +193,7 @@ int qChat::getMsg()
 
     switch (type) {
     case CHAT_AUTH_REP: {
-        struct chat_auth_rep *res = (struct chat_auth_rep *)data;
+        chat_auth_rep *res = (chat_auth_rep *)data;
 
         if (qFromBigEndian((int) res->res_type) == AUTH_SUCCESS)
             _ws = CLIENT_AUTHENTICATED;
@@ -220,13 +220,9 @@ int qChat::getMsg()
 
 int qChat::clientAuth()
 {
-    int datalen = 4 + _nick.size() + sizeof(struct chat_auth_req);
-    int bufflen = sizeof(struct chat_header) + datalen;
-    char *buff = (char *) malloc(bufflen);
-    if (!buff) {
-        qDebug() << "buffer allocation failed";
-        return -1;
-    }
+    int datalen = 4 + _nick.size() + sizeof(chat_auth_req);
+    int bufflen = sizeof(chat_header) + datalen;
+    char buff[bufflen];
     memset(buff, 0, bufflen);
     /*
      * XXX: open authentication for the moment
@@ -249,11 +245,7 @@ int qChat::sndMsg()
 
         int datalen = 4 + _nick.size() + data.size();
         int bufflen = sizeof(chat_header) +  datalen;
-        char *buff = (char *) malloc(bufflen);
-        if (!buff) {
-            qDebug() << "buffer allocation failed";
-            return -1;
-        }
+        char buff[bufflen];
         memset(buff, 0, bufflen);
 
         mkChatHeader(buff, CHAT_DATA, datalen);
@@ -276,10 +268,14 @@ int qChat::displayError(QAbstractSocket::SocketError err)
     case QAbstractSocket::ConnectionRefusedError:
         QMessageBox::information(this, "Error", "connection refused");
         break;
+    case QAbstractSocket::RemoteHostClosedError:
+        QMessageBox::information(this, "Error", "connection closed by server");
+        ui->textEdit->clear();
+        ui->userList->clear();
+        break;
     default:
         break;
     }
-    this->close();
 
     return 0;
 }

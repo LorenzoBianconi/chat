@@ -32,8 +32,8 @@ private:
 
     QTextTableFormat tableFormat;
 
-    enum client_ws {CLIENT_AUTHENTICATED, CLIENT_NOT_AUTHENTICATED};
-    enum client_ws _ws;
+    typedef enum {CLIENT_AUTHENTICATED, CLIENT_NOT_AUTHENTICATED} client_ws;
+    client_ws _ws;
 
     QString getHostname();
     int getUserSummary(char *);
@@ -41,7 +41,7 @@ private:
     int userLeft(QListWidgetItem *);
     int displayMsg(QString, QString);
 
-    int mkChatHeader(char *, enum chat_msg, int);
+    int mkChatHeader(char *, chat_msg, int);
     int mkSenderHeader(char *, QString);
     int mkChatData(char *, QString);
     int mkAuthReq(char *);
