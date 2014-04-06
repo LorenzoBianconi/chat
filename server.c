@@ -8,6 +8,7 @@
  */
 #include <netinet/in.h>
 #include <pthread.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/select.h>
@@ -21,6 +22,8 @@ static int udepth = 0;
 static char server[] = "chat_server";
 static int slen;
 static const struct timespec timeout = {5, 0};
+
+static volatile int exit_req;
 
 static void frw_msg(int sock, char *msg, int msglen)
 {
@@ -54,6 +57,15 @@ static void remove_user_info(int sock)
 	}
 }
 
+static void signal_hl(int sig, siginfo_t *siginfo, void *context)
+{
+#ifdef DEBUG
+	printf ("signal %d received from pid: %ld, uid: %ld\n",
+		sig, (long)siginfo->si_pid, (long)siginfo->si_uid);
+#endif
+	exit_req = 1;
+}
+
 static void *client_thread(void *t)
 {
 	usr_info *info = (usr_info *)t;
@@ -62,7 +74,7 @@ static void *client_thread(void *t)
 	int user_sum_len;
 	fd_set socks;
 
-	while (1) {
+	while (!exit_req) {
 		int len, err;
 
 		memset(msg, 0, BUFFLEN);
@@ -224,6 +236,8 @@ static int client_auth(int sock)
 int main(int argc, char **argv)
 {
 	int port = 9999, sock, optval = 1;
+	sigset_t mask, old_mask;
+	struct sigaction sigact;
 	struct sockaddr_in sa;
 	fd_set socks;
 
@@ -235,6 +249,27 @@ int main(int argc, char **argv)
 	sa.sin_family = AF_INET;
 	sa.sin_port = htons(port);
 	sa.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	/* signal handling */
+	memset(&sigact, 0, sizeof(struct sigaction));
+	sigact.sa_flags = SA_SIGINFO;
+	sigact.sa_sigaction = &signal_hl;
+	if (sigaction(SIGTERM, &sigact, NULL) < 0 ||
+	    sigaction(SIGINT, &sigact, NULL) < 0) {
+#ifdef DEBUG
+		printf("error registering signal handler\n");
+#endif
+		return -1;
+	}
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGTERM);
+	sigaddset(&mask, SIGINT);
+	if (sigprocmask(SIG_BLOCK, &mask, &old_mask) < 0) {
+#ifdef DEBUG
+		printf("error blocking signal\n");
+#endif
+		return -1;
+	}
 
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	if (sock < 0) {
@@ -266,13 +301,16 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	while (1) {
-		int err, cs;
+	while (!exit_req) {
+		int res, cs;
 
 		FD_ZERO(&socks);
 		FD_SET(sock, &socks);
-		err = pselect(sock + 1, &socks, NULL, NULL, &timeout, NULL);
-		if (err <= 0)
+		res = pselect(sock + 1, &socks, NULL, NULL, &timeout,
+			      &old_mask);
+		if (res < 0)
+			break;
+		else if (res == 0)
 			continue;
 
 		if (FD_ISSET(sock, &socks) &&
@@ -285,6 +323,7 @@ int main(int argc, char **argv)
 			}
 		}
 	}
+	pthread_exit(NULL);
 	close(sock);
 	return 0;
 }
