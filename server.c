@@ -129,6 +129,7 @@ static void *client_thread(void *t)
 					make_nick_info(umsg, server, slen);
 					make_chat_users_summary(umsg, slen, usrs);
 					snd_msg(umsg, user_sum_len, info->sock);
+					break;
 				}
 				default:
 					break;
