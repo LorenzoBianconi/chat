@@ -157,6 +157,7 @@ static void *client_thread(void *t)
 							ptr = malloc(datalen + 1);
 							memset((void *)ptr, 0, datalen + 1);
 							strncpy(ptr, data, datalen + 1);
+							un_depth += (datalen - info->nicklen);
 							info->nicklen = datalen;
 							info->nick = ptr;
 							break;
