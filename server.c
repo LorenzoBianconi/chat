@@ -66,6 +66,21 @@ static void signal_hl(int sig, siginfo_t *siginfo, void *context)
 	exit_req = 1;
 }
 
+static void send_summary(int dst)
+{
+	int data_len = 4 + slen + un_depth + 4 * udepth;
+	int user_sum_len = sizeof(chat_header) + data_len;
+	char umsg[user_sum_len];
+	memset(umsg, 0, user_sum_len);
+	make_chat_header(umsg, CHAT_USER_SUMMARY, data_len);
+	make_nick_info(umsg, server, slen);
+	make_chat_users_summary(umsg, slen, usrs);
+	if (dst == -1)
+		frw_msg(-1, umsg, user_sum_len);
+	else
+		snd_msg(umsg, user_sum_len, dst);
+}
+
 static void *client_thread(void *t)
 {
 	usr_info *info = (usr_info *)t;
@@ -118,17 +133,37 @@ static void *client_thread(void *t)
 					printf("%s: USER_SUMMARY Request\n",
 					       nick);
 #endif
-					data_len = 4 + slen + un_depth +
-						   4 * udepth;
-					user_sum_len = sizeof(chat_header) +
-						       data_len;
-					char umsg[user_sum_len];
-					memset(umsg, 0, user_sum_len);
-					make_chat_header(umsg, CHAT_USER_SUMMARY,
-							 data_len);
-					make_nick_info(umsg, server, slen);
-					make_chat_users_summary(umsg, slen, usrs);
-					snd_msg(umsg, user_sum_len, info->sock);
+					send_summary(info->sock);
+					break;
+				}
+				case CHAT_CHANGE_NICK: {
+					char *dptr;
+					usr_info *u = usrs;
+					int datalen = ntohl(ch->dlen) - 4 -
+						      info->nicklen;
+					char data[datalen + 1];
+					dptr = (char *)(msg + sizeof(chat_header)
+							+ 4 + info->nicklen);
+					memset((void *)data, 0, datalen + 1);
+					strncpy(data, dptr, datalen);
+#ifdef DEBUG
+					printf("%s: CHAT_CHANGE_NICK to %s\n",
+					       info->nick, data);
+#endif
+					while (u) {
+						if (!strcmp(info->nick, u->nick)) {
+							char *ptr = info->nick;
+							free(info->nick);
+							ptr = malloc(datalen + 1);
+							memset((void *)ptr, 0, datalen + 1);
+							strncpy(ptr, data, datalen + 1);
+							info->nicklen = datalen;
+							info->nick = ptr;
+							break;
+						}
+						u = u->next;
+					}
+					send_summary(-1);
 					break;
 				}
 				default:
@@ -141,14 +176,7 @@ static void *client_thread(void *t)
 	printf("%s is disconnected!!\n", info->nick);
 #endif
 	remove_user_info(info->sock);
-	data_len = 4 + slen + un_depth + 4 * udepth;
-	user_sum_len = sizeof(chat_header) + data_len;
-	char umsg[user_sum_len];
-	memset(umsg, 0, user_sum_len);
-	make_chat_header(umsg, CHAT_USER_SUMMARY, data_len);
-	make_nick_info(umsg, server, slen);
-	make_chat_users_summary(umsg, slen, usrs);
-	frw_msg(-1, umsg, user_sum_len);
+	send_summary(-1);
 
 	pthread_exit(NULL);
 }
@@ -217,14 +245,7 @@ static int client_auth(int sock)
 			make_auth_rep(rrep, slen, AUTH_SUCCESS);
 			if (snd_msg(rrep, rep_len, sock) < 0)
 				return -1;
-			data_len = 4 + slen + un_depth + 4 * udepth;
-			user_sum_len = sizeof(chat_header) + data_len;
-			char umsg[user_sum_len];
-			memset(umsg, 0, user_sum_len);
-			make_chat_header(umsg, CHAT_USER_SUMMARY, data_len);
-			make_nick_info(umsg, server, slen);
-			make_chat_users_summary(umsg, slen, usrs);
-			frw_msg(-1, umsg, user_sum_len);
+			send_summary(-1);
 #ifdef DEBUG
 			printf("authentication successful\n");
 #endif

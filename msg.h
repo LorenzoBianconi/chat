@@ -21,6 +21,7 @@ typedef enum {
 	CHAT_DATA,
 	CHAT_USER_SUMMARY,
 	CHAT_REQ_USER_SUMMARY,
+	CHAT_CHANGE_NICK,
 } chat_msg;
 
 typedef struct {
