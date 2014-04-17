@@ -6,6 +6,7 @@
 #include <QHostInfo>
 #include <QProcess>
 #include <QtEndian>
+#include <QTimer>
 
 qChat::qChat(QWidget *parent) :
     QWidget(parent),
@@ -18,8 +19,11 @@ qChat::qChat(QWidget *parent) :
     _port = 9999;
     _nick = getHostname() + QString("@") + QHostInfo::localHostName();
     _sock = new QTcpSocket(this);
+    _connecTimer = new QTimer(this);
 
     _ws = CLIENT_NOT_AUTHENTICATED;
+
+    _attempt = 1;
 
     tableFormat.setBorder(0);
 
@@ -28,8 +32,10 @@ qChat::qChat(QWidget *parent) :
     connect(_sock, SIGNAL(readyRead()), this, SLOT(getMsg()));
     connect(_sock, SIGNAL(error(QAbstractSocket::SocketError)),
             this, SLOT(displayError(QAbstractSocket::SocketError)));
+    connect(_connecTimer, SIGNAL(timeout()), this, SLOT(try_connect()));
 
     _sock->connectToHost(_host, _port);
+    _connecTimer->setSingleShot(true);
 }
 
 qChat::~qChat()
@@ -231,6 +237,9 @@ int qChat::clientAuth()
     mkSenderHeader(buff, _nick);
     mkAuthReq(buff);
 
+    _attempt = 1;
+    ui->msgEdit->setEnabled(true);
+
     _sock->write(buff, bufflen);
 
     return 0;
@@ -259,6 +268,11 @@ int qChat::sndMsg()
     return -1;
 }
 
+void qChat::try_connect()
+{
+    _sock->connectToHost(_host, _port);
+}
+
 int qChat::displayError(QAbstractSocket::SocketError err)
 {
     switch (err) {
@@ -266,13 +280,19 @@ int qChat::displayError(QAbstractSocket::SocketError err)
         QMessageBox::information(this, "Error", "server not found");
         break;
     case QAbstractSocket::ConnectionRefusedError:
-        QMessageBox::information(this, "Error", "connection refused");
-        break;
-    case QAbstractSocket::RemoteHostClosedError:
-        QMessageBox::information(this, "Error", "connection closed by server");
-        ui->textEdit->clear();
+    case QAbstractSocket::RemoteHostClosedError: {
+        int to = _attempt * DELAY;
+        if (to < MAX_TO_MS)
+            _attempt++;
+        else
+            to = MAX_TO_MS;
+        _connecTimer->start(to);
+        ui->msgEdit->setEnabled(false);
         ui->userList->clear();
+        ui->textEdit->setTextColor(Qt::blue);
+        ui->textEdit->append(tr("* connection to lorenzobianconi.net failed"));
         break;
+    }
     default:
         break;
     }

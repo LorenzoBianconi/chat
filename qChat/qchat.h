@@ -11,6 +11,9 @@ namespace Ui {
 class qChat;
 }
 
+#define MAX_TO_MS   60000
+#define DELAY       5000
+
 class qChat : public QWidget
 {
     Q_OBJECT
@@ -23,12 +26,15 @@ private slots:
     int getMsg();
     int clientAuth();
     int displayError(QAbstractSocket::SocketError err);
+    void try_connect();
 private:
     Ui::qChat *ui;
 
+    QTimer *_connecTimer;
     QTcpSocket *_sock;
     QString _host, _nick;
     int _port;
+    int _attempt;
 
     QTextTableFormat tableFormat;
 
