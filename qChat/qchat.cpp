@@ -15,7 +15,7 @@ qChat::qChat(QWidget *parent) :
     ui->setupUi(this);
 
     /* server parameters */
-    _host = "lorenet.dyndns.org";
+    _host = "lorenzobianconi.no-ip.org";
     _port = 9999;
     _nick = getHostname() + QString("@") + QHostInfo::localHostName();
     _sock = new QTcpSocket(this);
