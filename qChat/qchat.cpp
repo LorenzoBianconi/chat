@@ -72,22 +72,22 @@ int qChat::mkChatHeader(char *msg,chat_msg type, int msglen)
     return 0;
 }
 
-int qChat::mkSenderHeader(char *msg, QString nick)
+int qChat::mkSenderHeader(char *msg, QByteArray nick)
 {
     char *sinfo = (char *)(msg + sizeof(chat_header));
 
     *((int *)sinfo) = qToBigEndian(nick.size());
-    memcpy(sinfo + 4, nick.toLatin1().data(), nick.size());
+    memcpy(sinfo + 4, nick.data(), nick.size());
 
     return 0;
 }
 
-int qChat::mkChatData(char *msg, QString text)
+int qChat::mkChatData(char *msg, QByteArray text)
 {
     char *sInfo = (char *)(msg + sizeof(chat_header));
     char *data = (char *)(sInfo + 4 + _nick.size());
 
-    memcpy(data, text.toLatin1().data(), text.size());
+    memcpy(data, text.data(), text.size());
 
     return 0;
 }
@@ -234,7 +234,7 @@ int qChat::clientAuth()
      * XXX: open authentication for the moment
      */
     mkChatHeader(buff, CHAT_AUTH_REQ, datalen);
-    mkSenderHeader(buff, _nick);
+    mkSenderHeader(buff, _nick.toUtf8());
     mkAuthReq(buff);
 
     _attempt = 1;
@@ -252,14 +252,14 @@ int qChat::sndMsg()
         displayMsg(_nick, data);
         ui->msgEdit->clear();
 
-        int datalen = 4 + _nick.size() + data.size();
+        int datalen = 4 + _nick.toUtf8().size() + data.toUtf8().size();
         int bufflen = sizeof(chat_header) +  datalen;
         char buff[bufflen];
         memset(buff, 0, bufflen);
 
         mkChatHeader(buff, CHAT_DATA, datalen);
-        mkSenderHeader(buff, _nick);
-        mkChatData(buff, data);
+        mkSenderHeader(buff, _nick.toUtf8());
+        mkChatData(buff, data.toUtf8());
 
         _sock->write(buff, bufflen);
 

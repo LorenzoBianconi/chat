@@ -48,8 +48,8 @@ private:
     int displayMsg(QString, QString);
 
     int mkChatHeader(char *, chat_msg, int);
-    int mkSenderHeader(char *, QString);
-    int mkChatData(char *, QString);
+    int mkSenderHeader(char *, QByteArray);
+    int mkChatData(char *, QByteArray);
     int mkAuthReq(char *);
 };
 
